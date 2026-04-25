@@ -99,11 +99,15 @@ const API_KEY_STORE       = 'lc_api_key';
 const TRANSLATE_KEY_STORE = 'lc_translate_key';
 
 function loadSavedKeys() {
+  const BAKED = '__GEMINI_DEFAULT_KEY__'; // replaced at deploy time by Docker entrypoint
   const saved = localStorage.getItem(API_KEY_STORE);
-  if (saved) {
-    document.getElementById('api-key').value = saved;
+  const key   = saved || (validateApiKey(BAKED) ? BAKED : '');
+
+  if (key) {
+    document.getElementById('api-key').value = key;
     document.getElementById('api-key-group').hidden = true;
     document.getElementById('api-key-saved').hidden = false;
+    if (!saved) localStorage.setItem(API_KEY_STORE, key);
   }
   const savedTr = localStorage.getItem(TRANSLATE_KEY_STORE);
   if (savedTr) document.getElementById('translate-key').value = savedTr;
