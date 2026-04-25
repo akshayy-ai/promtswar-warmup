@@ -618,6 +618,62 @@ kbd {
   margin-left: auto;
 }
 
+/* ── MCQ Quiz ─────────────────────────────────────────────── */
+.mcq-options {
+  display: grid;
+  gap: .5rem;
+  margin-top: .875rem;
+}
+.mcq-option {
+  display: flex;
+  align-items: flex-start;
+  gap: .625rem;
+  padding: .625rem .875rem;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: .9rem;
+  text-align: left;
+  cursor: pointer;
+  transition: all var(--transition);
+  width: 100%;
+}
+.mcq-option:hover:not(:disabled) {
+  border-color: var(--brand);
+  background: var(--brand-light);
+}
+.mcq-option.selected { border-color: var(--brand);   background: var(--brand-light); font-weight: 500; }
+.mcq-option.correct  { border-color: var(--success);  background: #F0FDF4; }
+.mcq-option.wrong    { border-color: var(--error);    background: #FEF2F2; }
+.mcq-option:disabled { cursor: not-allowed; }
+.mcq-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--surface-3);
+  font-weight: 700;
+  font-size: .78rem;
+  flex-shrink: 0;
+  color: var(--text-2);
+  transition: all var(--transition);
+}
+.mcq-option.selected .mcq-label { background: var(--brand);   color: #fff; }
+.mcq-option.correct  .mcq-label { background: var(--success); color: #fff; }
+.mcq-option.wrong    .mcq-label { background: var(--error);   color: #fff; }
+.mcq-text { flex: 1; line-height: 1.45; }
+
+/* ── Concept pop-in animation ─────────────────────────────── */
+@keyframes conceptPop {
+  0%   { transform: scale(.8); opacity: 0; background: var(--brand-light); }
+  60%  { transform: scale(1.06); }
+  100% { transform: scale(1);   opacity: 1; background: transparent; }
+}
+.concept-new { animation: conceptPop .65s ease forwards; }
+
 /* ── Translation box ──────────────────────────────────────── */
 .translation-box {
   margin-top: .625rem;

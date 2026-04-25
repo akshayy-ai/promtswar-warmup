@@ -54,11 +54,12 @@ const profile = {
   turnCount:     0,
 };
 
-let history      = [];
-let apiKey       = '';
-let translateKey = '';
-let isLoading    = false;
-let ttsActive    = false;
+let history         = [];
+let apiKey          = '';
+let translateKey    = '';
+let isLoading       = false;
+let ttsActive       = false;
+let lastMCQSelected = null;
 
 // ── Rate limiting ──────────────────────────────────────────────
 let lastRequestTime = 0;
@@ -272,6 +273,14 @@ RESPONSE FORMAT:
 - Teach ONE concept at a time. End every teaching response with ONE question.
 - After every 3-4 turns briefly recap: "So far you've understood…".
 
+QUIZ FORMAT — when the learner asks for a quiz, ALWAYS use this exact structure:
+[One clear question ending with ?]
+A) [option]
+B) [option]
+C) [option]
+D) [option]
+After they reply, tell them if they were correct or wrong, briefly explain why, then continue teaching.
+
 METADATA FOOTER — always append at the end of EVERY response, exactly like this:
 <!--META
 level: <beginner|intermediate|advanced>
@@ -376,7 +385,9 @@ function applyMeta(meta) {
     sidebarLevel.textContent = capitalize(meta.level);
   }
   if (!isNaN(meta.understanding)) {
+    const prev = profile.understanding;
     profile.understanding = Math.max(0, Math.min(100, meta.understanding));
+    checkMilestone(prev, profile.understanding);
     updateProgressUI();
   }
   if (meta.concepts_mastered && meta.concepts_mastered !== 'none') {
@@ -392,16 +403,25 @@ function applyMeta(meta) {
 }
 
 function updateProgressUI() {
-  progressFill.style.width = `${profile.understanding}%`;
-  progressFill.parentElement.setAttribute('aria-valuenow', profile.understanding);
-  progressPct.textContent = `${profile.understanding}%`;
+  const pct = profile.understanding;
+  progressFill.style.width = `${pct}%`;
+  progressFill.style.background = pct >= 75 ? 'var(--success)' : pct >= 40 ? 'var(--warning)' : 'var(--brand)';
+  progressFill.parentElement.setAttribute('aria-valuenow', pct);
+  progressPct.textContent = `${pct}%`;
 }
 
 function renderConcepts() {
   if (!profile.concepts.length) return;
-  conceptsList.innerHTML = profile.concepts
-    .map(c => `<li class="concept-item">${escapeHtml(c)}</li>`)
-    .join('');
+  const existing = new Set([...conceptsList.querySelectorAll('.concept-item')].map(li => li.textContent.trim()));
+  profile.concepts.forEach(c => {
+    if (existing.has(c)) return;
+    conceptsList.querySelector('.concept-placeholder')?.remove();
+    const li = document.createElement('li');
+    li.className = 'concept-item concept-new';
+    li.textContent = c;
+    conceptsList.appendChild(li);
+    setTimeout(() => li.classList.remove('concept-new'), 800);
+  });
 }
 
 // ── Text-to-Speech (Web Speech API) ───────────────────────────
@@ -616,9 +636,26 @@ async function sendMessage(text) {
 
     bubble.classList.remove('streaming-cursor');
     bubble.id = '';
-    bubble.innerHTML = parseMarkdown(stripMeta(fullText));
+    const cleanResponse = stripMeta(fullText);
 
-    streamDiv.querySelector('.message-content').appendChild(createMessageActions(stripMeta(fullText)));
+    // Mark last MCQ answer correct/wrong based on AI response keywords
+    if (lastMCQSelected) {
+      const lower = cleanResponse.toLowerCase();
+      const correct = /\b(correct|right|well done|exactly|great job|that('s| is) right|yes[,!])\b/.test(lower);
+      const wrong   = /\b(incorrect|wrong|not quite|that('s| is) not|unfortunately|actually[,])\b/.test(lower);
+      if (correct)      lastMCQSelected.classList.add('correct');
+      else if (wrong)   lastMCQSelected.classList.add('wrong');
+      lastMCQSelected = null;
+    }
+
+    const mcq = parseMCQ(cleanResponse);
+    if (mcq) {
+      renderMCQInBubble(mcq, bubble);
+    } else {
+      bubble.innerHTML = parseMarkdown(cleanResponse);
+    }
+
+    streamDiv.querySelector('.message-content').appendChild(createMessageActions(cleanResponse));
     applyMeta(parseMeta(fullText));
 
   } catch (err) {
@@ -672,6 +709,62 @@ function escapeHtml(str) {
 }
 
 function capitalize(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
+
+// ── MCQ quiz parser ────────────────────────────────────────────
+/** Parses A/B/C/D multiple-choice options from text; returns {question, options} or null. */
+function parseMCQ(text) {
+  const lines  = text.split('\n').map(l => l.trim()).filter(Boolean);
+  const optRe  = /^([A-D])[).]\s*(.+)/;
+  const opts   = [];
+  const qLines = [];
+  let seenOpts = false;
+
+  for (const line of lines) {
+    const m = line.match(optRe);
+    if (m) { seenOpts = true; opts.push({ label: m[1], text: m[2] }); }
+    else if (!seenOpts) qLines.push(line);
+  }
+
+  return opts.length >= 2 ? { question: qLines.join('\n'), options: opts } : null;
+}
+
+/** Replaces bubble innerHTML with an interactive MCQ UI; clicking an option submits the answer. */
+function renderMCQInBubble(mcq, bubble) {
+  bubble.innerHTML = parseMarkdown(mcq.question);
+
+  const grid = document.createElement('div');
+  grid.className = 'mcq-options';
+  grid.setAttribute('role', 'group');
+  grid.setAttribute('aria-label', 'Quiz options — choose one');
+
+  mcq.options.forEach(opt => {
+    const btn = document.createElement('button');
+    btn.className = 'mcq-option';
+    btn.setAttribute('type', 'button');
+    btn.setAttribute('aria-label', `Option ${opt.label}: ${opt.text}`);
+    btn.innerHTML = `<span class="mcq-label">${escapeHtml(opt.label)}</span><span class="mcq-text">${escapeHtml(opt.text)}</span>`;
+    btn.addEventListener('click', () => {
+      grid.querySelectorAll('.mcq-option').forEach(b => { b.disabled = true; });
+      btn.classList.add('selected');
+      lastMCQSelected = btn;
+      trackEvent('quiz_answer', { topic: profile.topic });
+      sendMessage(`My answer is ${opt.label}) ${opt.text}`);
+    });
+    grid.appendChild(btn);
+  });
+
+  bubble.appendChild(grid);
+}
+
+/** Shows a celebratory toast when understanding crosses a milestone (25/50/75/100). */
+function checkMilestone(prev, next) {
+  const milestones = [25, 50, 75, 100];
+  const hit = milestones.find(m => prev < m && next >= m);
+  if (!hit) return;
+  const labels = { 25: '🌱 Great start!', 50: '🔥 Halfway there!', 75: '⚡ Almost an expert!', 100: '🏆 Full understanding!' };
+  showToast(`${labels[hit]} ${hit}% understanding reached!`, 3500);
+  trackEvent('milestone_reached', { milestone: hit, topic: profile.topic });
+}
 
 // ── Toast ──────────────────────────────────────────────────────
 function showToast(msg, duration = 4500) {
@@ -782,7 +875,7 @@ const actionMap = {
   simpler: 'Please explain that more simply using a basic analogy.',
   deeper:  'I understand — can you go deeper with more technical detail?',
   example: 'Can you give me a concrete real-world example of this?',
-  quiz:    'Quiz me on what we have covered so far.',
+  quiz:    'Give me a multiple-choice quiz question (A/B/C/D) on what we have covered so far.',
   summary: 'Summarise everything I have learned in this session.',
   next:    'I am ready to move on. What is the next concept I should learn?',
 };
