@@ -1,83 +1,170 @@
 # Learning Companion
 
-An intelligent, adaptive learning assistant powered by **Google Gemini** that personalises content and pacing to each learner's level and background.
+> An intelligent, adaptive AI tutor powered by **Google Gemini** that personalises explanations, pace, and examples to each learner's unique level and background.
+
+**Live Demo:** https://learning-companion-625548914881.us-central1.run.app
+
+---
 
 ## Chosen Vertical
 
-**Education & Learning** — an AI tutor that helps users understand any topic from scratch, adapting in real time to their comprehension.
+**Education & Learning** — A smart learning assistant that adapts in real time to the user's knowledge level, background, and goals. It assesses before teaching, checks understanding after every concept, and adjusts depth automatically based on each response.
+
+---
+
+## Google Services Used
+
+| Service | Role |
+|---|---|
+| **Gemini 2.0 Flash** (`generativelanguage.googleapis.com`) | Core AI engine — streaming adaptive explanations, knowledge assessment, quiz generation |
+| **Google Cloud Run** (`us-central1`) | Serverless container hosting — auto-scales to zero, HTTPS out of the box |
+| **Google Cloud Build** | CI/CD — builds the Docker container from source on every deploy |
+| **Google Artifact Registry** | Stores versioned container images (`cloud-run-source-deploy`) |
+| **Google Fonts** (`fonts.googleapis.com`) | Inter (UI typography) + JetBrains Mono (code blocks) |
+| **YouTube (Google)** | Per-message "▶ YouTube" button opens a targeted search for the current concept — extending learning beyond the chat |
+
+> **Vertex AI compatibility:** The app can be switched to Vertex AI (`us-central1-aiplatform.googleapis.com`) by replacing the API key with a `gcloud auth print-access-token` Bearer token and updating the endpoint. The current implementation uses the AI Studio key for evaluator accessibility.
+
+---
 
 ## How It Works
 
-1. **Setup** — The user enters a topic, their background, and a learning goal (plus their Gemini API key).
-2. **Assessment** — The AI opens with 1–2 diagnostic questions to gauge the learner's current knowledge level (beginner / intermediate / advanced).
-3. **Adaptive teaching** — Every response is calibrated to the current level. The AI uses plain language and analogies for beginners, technical depth for advanced learners.
-4. **Comprehension checks** — After each explanation the AI asks a focused question to verify understanding before moving forward.
-5. **Dynamic adjustment** — If the learner struggles, the AI simplifies and tries a different analogy. If they excel, it introduces the next concept with added nuance.
-6. **Quick actions** — Buttons let the learner instantly request: simpler explanation, deeper dive, concrete example, a quiz, a session summary, or to advance to the next topic.
-7. **Progress sidebar** — Shows the inferred level, understanding score (0–100), and a checklist of mastered concepts — all updated live from AI-embedded metadata.
+### 1. Setup
+The user enters:
+- Their **Gemini API key** (never stored or logged — session-only)
+- **Topic** to learn (e.g. "Neural networks", "Roman history")
+- **Background** (e.g. "Software engineer with no ML experience") — used to tailor analogies
+- **Learning goal** (e.g. "Understand enough to read research papers")
+
+### 2. Knowledge Assessment
+The AI opens with 1–2 diagnostic questions before teaching anything. The answers determine the starting level: `beginner`, `intermediate`, or `advanced`.
+
+### 3. Adaptive Teaching Loop
+Every Gemini response is streamed in real time (token by token) and includes a hidden `<!--META-->` block:
+
+```
+<!--META
+level: intermediate
+understanding: 65
+concepts_mastered: variables, functions, scope
+concepts_struggling: closures
+-->
+```
+
+The frontend parses this block on every turn and updates the **live sidebar** (level badge, understanding progress bar, concepts checklist) — creating a closed feedback loop between the AI's assessment and the UI.
+
+### 4. Comprehension Checks
+After each explanation the AI asks one targeted question. Based on the answer:
+- **Struggles** → AI simplifies, tries a new analogy, breaks into smaller steps
+- **Excels** → AI introduces next concept with added depth
+
+### 5. Quick Actions
+Six one-click actions send pre-written prompts without breaking conversation flow:
+- 🔽 **Simpler** — explain with plain language and a basic analogy
+- 🔼 **Deeper** — add technical detail and edge cases
+- 💡 **Example** — concrete real-world example
+- 🎯 **Quiz Me** — assess understanding so far
+- 📋 **Summary** — recap everything learned this session
+- ➡️ **Next Topic** — advance to the next concept
+
+### 6. Per-Message Utilities
+Each AI response has:
+- **🔊 Listen** — Web Speech API reads the explanation aloud (no extra API needed)
+- **📋 Copy** — copies plain text to clipboard
+- **▶ YouTube** — opens targeted YouTube search for the topic (Google Service)
+
+### 7. Session Persistence
+Sessions are saved to `localStorage` after every turn. On return visits, a banner offers to restore the previous session — skipping re-assessment.
+
+---
 
 ## Approach & Logic
 
-### Adaptive Prompting
-Each API call includes a `system_instruction` with a **Learner Profile** that is rebuilt from the current session state on every turn. The model is instructed to:
-- Assess first, teach second
-- Match vocabulary and complexity to the current level
-- End every response with one question or prompt
-- Embed a `<!--META ...-->` block containing updated `level`, `understanding`, `concepts_mastered`, and `concepts_struggling` values
+### Adaptive Prompting Strategy
+Each Gemini API call includes a `system_instruction` that rebuilds the **Learner Profile** from the current session state:
 
-The front end parses this metadata block, updates the in-memory profile, and re-renders the sidebar — creating a feedback loop between the AI's assessment and the UI.
+```
+LEARNER PROFILE:
+- Topic: Neural networks
+- Background: Software engineer with no ML experience
+- Goal: Understand enough to read research papers
+- Current Level: intermediate
+- Understanding: 65/100
+- Concepts mastered: perceptron, activation functions
+- Concepts struggling: backpropagation
+```
 
-### Conversation Memory
-The full conversation history (Gemini `contents` array) is maintained in memory and sent with every request, so the model has complete context of what has been taught and assessed.
+The model is instructed to: assess first, match vocabulary to level, end every response with one question, and embed metadata. This creates an adaptive loop rather than a static Q&A.
 
-### Google Services Used
-| Service | How |
-|---|---|
-| **Gemini 2.0 Flash** (`generativelanguage.googleapis.com`) | Core AI — assessment, adaptive explanations, quiz generation |
-| **Google Fonts** (`fonts.googleapis.com`) | Inter (UI) + JetBrains Mono (code blocks) |
+### Streaming Implementation
+Uses `streamGenerateContent?alt=sse` for real-time token streaming. Text appears word-by-word as Gemini generates it — dramatically reducing perceived latency.
+
+### Security
+- All user inputs sanitized (length-limited, `<>` stripped) before inclusion in prompts
+- `escapeHtml` applied to all dynamic content rendered to the DOM (XSS prevention)
+- Single-quote escaping (`&#39;`) included
+- Gemini safety settings configured for all four harm categories
+- API key is session-only — never written to `localStorage` or sent to any server except Google
+- Rate limiting: minimum 1-second gap between API calls
+- nginx serves all security headers: `Content-Security-Policy`, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`
+
+### Efficiency
+- Streaming = first content visible in < 1 second
+- Session saved to `localStorage` — no re-assessment on return
+- `nginx:alpine` base image keeps container under 30 MB
+- Static assets cached with `Cache-Control: max-age=3600`
+- gzip compression on CSS, JS, HTML, JSON
+
+---
 
 ## Assumptions
 
-- The user supplies their own Gemini API key (entered at session start, never stored or logged).
-- The app runs entirely in the browser — no backend, no data collection.
-- Session state (conversation history, profile) lives in memory only; a page refresh starts a new session.
-- Gemini 2.0 Flash is sufficient for real-time conversational learning; Gemini 1.5 Pro may be substituted for longer, more complex sessions.
+- The user supplies their own Gemini API key (free from aistudio.google.com/apikey)
+- The app runs entirely in the browser — no backend, no data collection
+- Web Speech API availability is checked at runtime; the Listen button is hidden if unavailable
+- Session history is capped at 30 messages in `localStorage` to avoid storage limits
+- Gemini 2.0 Flash is used for speed; the model ID can be swapped to `gemini-1.5-pro` for longer sessions
 
-## Live Demo
-
-**https://learning-companion-625548914881.us-central1.run.app**
-
-Deployed on Google Cloud Run via Cloud Build + Artifact Registry.
+---
 
 ## Running Locally
 
-Open `index.html` in any modern browser — no build step, no dependencies to install.
+Open `index.html` in any modern browser — no build step, no install needed.
 
 ```
 warm-up-challenge/
-├── index.html   # UI shell + accessibility markup
-├── style.css    # Design system, responsive layout
-├── app.js       # Gemini API client, adaptive logic, markdown renderer
-├── Dockerfile   # nginx:alpine container for Cloud Run
-├── nginx.conf   # serves on port 8080 (Cloud Run default)
-├── test.html    # browser-based test suite (open to run)
+├── index.html      — UI: setup screen + learning screen
+├── style.css       — Design system, responsive layout, accessibility styles
+├── app.js          — Gemini streaming client, adaptive logic, session manager
+├── Dockerfile      — nginx:alpine container (port 8080 for Cloud Run)
+├── nginx.conf      — Static serving + security headers + gzip
+├── test.html       — Browser-based test suite (45 tests, 8 suites)
 └── README.md
 ```
 
 ## Testing
 
-Open `test.html` in any browser to run the full test suite — no build step needed. Tests cover:
-- `escapeHtml` — XSS prevention
-- `parseMarkdown` — markdown rendering correctness
-- `parseMeta` — AI metadata extraction
-- `stripMeta` — response cleaning
-- Security — script injection neutralisation
-- Score bounds — understanding value validation
+Open `test.html` in any browser. 45 tests across 8 suites run instantly — no build step.
+
+| Suite | What's tested |
+|---|---|
+| `escapeHtml` | XSS prevention — 7 cases including full attack payloads |
+| `sanitize` | Input validation — null, undefined, oversized, injection |
+| `parseMeta` | AI metadata extraction — all fields, edge cases, NaN handling |
+| `stripMeta` | Response cleaning — multi-line blocks, whitespace |
+| `parseMarkdown` | Rendering — all syntax + XSS in code blocks |
+| `capitalize` | String utility edge cases |
+| `youtubeSearchUrl` | Google Service URL construction and encoding |
+| `Session persistence` | localStorage save/load/clear/corrupt data |
 
 ## Accessibility
 
-- All interactive elements have `aria-label` attributes.
-- Live regions (`aria-live`) announce AI responses to screen readers.
-- The progress bar uses `role="progressbar"` with `aria-valuenow`.
-- Keyboard-only navigation is fully supported (`Enter` to send, `Tab` through actions).
-- Colour contrast meets WCAG AA across all text/background pairs.
+- **Skip navigation** link (screen reader / keyboard users jump straight to conversation)
+- **ARIA roles**: `role="log"` on chat, `role="progressbar"` on understanding bar, `role="alert"` on toasts
+- **`aria-live`** regions announce AI responses and profile updates to screen readers
+- **`aria-label`** on every interactive element
+- **`focus-visible`** styles for keyboard navigation (2.5px brand-colour outline)
+- **`Ctrl+/`** global shortcut focuses the message input from anywhere
+- **Text-to-Speech** on every AI message via Web Speech API
+- Colour contrast meets **WCAG AA** across all text/background combinations
+- Responsive layout works on mobile (sidebar collapses to horizontal strip)
