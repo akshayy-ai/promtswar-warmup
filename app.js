@@ -455,7 +455,10 @@ function applyMeta(meta) {
 function updateProgressUI() {
   const pct = profile.understanding;
   progressFill.style.width = `${pct}%`;
-  progressFill.style.background = pct >= 75 ? 'var(--success)' : pct >= 40 ? 'var(--warning)' : 'var(--brand)';
+  progressFill.style.background =
+    pct >= 75 ? 'linear-gradient(90deg,#10B981,#34D399)' :
+    pct >= 40 ? 'linear-gradient(90deg,#F59E0B,#FBBF24)' :
+                'linear-gradient(90deg,#4F46E5,#7C3AED)';
   progressFill.parentElement.setAttribute('aria-valuenow', pct);
   progressPct.textContent = `${pct}%`;
 }
