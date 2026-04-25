@@ -9,7 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <!-- Google Analytics 4 -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-GL9PBMHZ4G"></script>
-  <link rel="stylesheet" href="style.css?v=21" />
+  <link rel="stylesheet" href="style.css?v=22" />
 </head>
 <body>
   <a href="#chat-messages" class="skip-nav">Skip to conversation</a>
@@ -88,7 +88,7 @@
           <span>🌍 Any topic</span>
         </div>
 
-        <p class="login-note">API keys are never stored — session only.</p>
+        <p class="login-note">API key saved in your browser — never on our servers.</p>
       </div>
 
     </div>
@@ -126,53 +126,33 @@
       </div>
 
       <form id="setup-form" novalidate>
-        <div class="field-group">
+
+        <!-- API key: shown first time, hidden once saved -->
+        <div class="field-group" id="api-key-group">
           <label for="api-key">Gemini API Key <span class="required" aria-label="required">*</span></label>
           <input type="password" id="api-key" placeholder="AIza…" autocomplete="off" required aria-describedby="api-key-hint" maxlength="50" />
-          <span id="api-key-hint" class="field-hint">Get a free key at <strong>aistudio.google.com/apikey</strong> — never stored, session only.</span>
+          <span id="api-key-hint" class="field-hint">Get a free key at <strong>aistudio.google.com/apikey</strong> — saved in your browser.</span>
+        </div>
+
+        <!-- Shown once key is saved -->
+        <div id="api-key-saved" class="api-configured" hidden>
+          <div class="api-configured-badge">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8L7 12L13 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            API key ready
+          </div>
+          <button type="button" id="btn-change-key" class="btn-link">Change</button>
         </div>
 
         <div class="field-group">
-          <label for="model-select">Gemini Model</label>
-          <select id="model-select" aria-describedby="model-hint">
-            <optgroup label="Gemini 3 (Preview)">
-              <option value="gemini-3.1-pro-preview">gemini-3.1-pro-preview — newest &amp; smartest ✨</option>
-              <option value="gemini-3-flash-preview">gemini-3-flash-preview — next-gen, fast</option>
-            </optgroup>
-            <optgroup label="Gemini 2.5 (Stable)">
-              <option value="gemini-2.5-pro">gemini-2.5-pro — best stable, deep reasoning</option>
-              <option value="gemini-2.5-flash" selected>gemini-2.5-flash — fast + smart ⚡ (recommended)</option>
-              <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite — fastest, lightest</option>
-            </optgroup>
-            <optgroup label="Gemini 2.0">
-              <option value="gemini-2.0-flash">gemini-2.0-flash — reliable fallback</option>
-            </optgroup>
-          </select>
-          <span id="model-hint" class="field-hint">Paid key: no rate limits on any model. Gemini 3.1 Pro gives the best teaching quality.</span>
-        </div>
-
-        <div class="field-group">
-          <label for="topic">Topic to Learn <span class="required" aria-label="required">*</span></label>
-          <input type="text" id="topic" placeholder="e.g. Neural networks, Quantum computing, Roman history…" required aria-describedby="topic-hint" maxlength="200" />
-          <span id="topic-hint" class="field-hint">Be as specific or broad as you like.</span>
+          <label for="topic">What do you want to learn? <span class="required" aria-label="required">*</span></label>
+          <input type="text" id="topic" placeholder="e.g. How does the internet work? Dinosaurs. Black holes." required aria-describedby="topic-hint" maxlength="200" />
+          <span id="topic-hint" class="field-hint">Be as simple or specific as you like — I'll adapt.</span>
         </div>
 
         <div class="field-group">
           <label for="background">Your Background <span class="optional">(optional)</span></label>
-          <input type="text" id="background" placeholder="e.g. Software engineer with no ML experience" aria-describedby="background-hint" maxlength="300" />
-          <span id="background-hint" class="field-hint">Helps me tailor analogies and examples for you.</span>
-        </div>
-
-        <div class="field-group">
-          <label for="goal">Learning Goal <span class="optional">(optional)</span></label>
-          <input type="text" id="goal" placeholder="e.g. Understand enough to read research papers" aria-describedby="goal-hint" maxlength="300" />
-          <span id="goal-hint" class="field-hint">What do you want to be able to do after this session?</span>
-        </div>
-
-        <div class="field-group">
-          <label for="translate-key">Translation API Key <span class="optional">(optional)</span></label>
-          <input type="password" id="translate-key" placeholder="AIza…" autocomplete="off" aria-describedby="translate-key-hint" maxlength="50" />
-          <span id="translate-key-hint" class="field-hint">Enables 🌐 Translate on any AI message. Get a key at <strong>console.cloud.google.com</strong> with Cloud Translation API enabled.</span>
+          <input type="text" id="background" placeholder="e.g. I'm in 5th grade" aria-describedby="background-hint" maxlength="300" />
+          <span id="background-hint" class="field-hint">Helps me use the right words and analogies for you.</span>
         </div>
 
         <button type="submit" class="btn-primary" id="start-btn">
@@ -181,6 +161,42 @@
             <path d="M3 8H13M13 8L9 4M13 8L9 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         </button>
+
+        <!-- Advanced settings collapsed by default -->
+        <details class="advanced-settings">
+          <summary>Advanced settings</summary>
+          <div class="advanced-inner">
+            <div class="field-group">
+              <label for="goal">Learning Goal <span class="optional">(optional)</span></label>
+              <input type="text" id="goal" placeholder="e.g. Understand enough to read research papers" aria-describedby="goal-hint" maxlength="300" />
+              <span id="goal-hint" class="field-hint">What do you want to be able to do after this session?</span>
+            </div>
+            <div class="field-group">
+              <label for="model-select">AI Model</label>
+              <select id="model-select" aria-describedby="model-hint">
+                <optgroup label="Gemini 3 (Preview)">
+                  <option value="gemini-3.1-pro-preview">gemini-3.1-pro-preview — newest &amp; smartest ✨</option>
+                  <option value="gemini-3-flash-preview">gemini-3-flash-preview — next-gen, fast</option>
+                </optgroup>
+                <optgroup label="Gemini 2.5 (Stable)">
+                  <option value="gemini-2.5-pro">gemini-2.5-pro — deep reasoning</option>
+                  <option value="gemini-2.5-flash" selected>gemini-2.5-flash — fast + smart ⚡</option>
+                  <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite — fastest</option>
+                </optgroup>
+                <optgroup label="Gemini 2.0">
+                  <option value="gemini-2.0-flash">gemini-2.0-flash — reliable fallback</option>
+                </optgroup>
+              </select>
+              <span id="model-hint" class="field-hint">Gemini 2.5 Flash recommended for most users.</span>
+            </div>
+            <div class="field-group">
+              <label for="translate-key">Translation API Key <span class="optional">(optional)</span></label>
+              <input type="password" id="translate-key" placeholder="AIza…" autocomplete="off" aria-describedby="translate-key-hint" maxlength="50" />
+              <span id="translate-key-hint" class="field-hint">Enables 🌐 Translate on any message. Cloud Translation API key from <strong>console.cloud.google.com</strong>.</span>
+            </div>
+          </div>
+        </details>
+
       </form>
     </div>
   </div>
@@ -272,6 +288,6 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-  <script src="app.js?v=21"></script>
+  <script src="app.js?v=22"></script>
 </body>
 </html>

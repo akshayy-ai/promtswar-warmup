@@ -94,6 +94,21 @@ function sanitize(str) {
   return String(str).slice(0, 500).replace(/[<>]/g, '');
 }
 
+// ── Key persistence ────────────────────────────────────────────
+const API_KEY_STORE       = 'lc_api_key';
+const TRANSLATE_KEY_STORE = 'lc_translate_key';
+
+function loadSavedKeys() {
+  const saved = localStorage.getItem(API_KEY_STORE);
+  if (saved) {
+    document.getElementById('api-key').value = saved;
+    document.getElementById('api-key-group').hidden = true;
+    document.getElementById('api-key-saved').hidden = false;
+  }
+  const savedTr = localStorage.getItem(TRANSLATE_KEY_STORE);
+  if (savedTr) document.getElementById('translate-key').value = savedTr;
+}
+
 // ── Session persistence ────────────────────────────────────────
 const SESSION_KEY = 'lc_session_v2';
 
@@ -219,6 +234,7 @@ function updateAuthUI(user) {
     showScreen('setup');
     if (avatar && user.photoURL) { avatar.src = user.photoURL; avatar.hidden = false; }
     if (nameEl) nameEl.textContent = user.displayName || user.email || '';
+    loadSavedKeys();
     const local = loadSession();
     if (local) sessionBanner.hidden = false;
   } else {
@@ -933,9 +949,12 @@ setupForm.addEventListener('submit', (e) => {
   if (!validateApiKey(key)) { showToast('Invalid API key — must start with AIza and be 35–50 characters.'); return; }
   if (!topic)               { showToast('Please enter a topic to learn.'); return; }
 
-  apiKey             = key;
-  translateKey       = document.getElementById('translate-key').value.trim();
-  geminiModel        = document.getElementById('model-select').value;
+  apiKey       = key;
+  translateKey = document.getElementById('translate-key').value.trim();
+  geminiModel  = document.getElementById('model-select').value;
+
+  localStorage.setItem(API_KEY_STORE, key);
+  if (translateKey) localStorage.setItem(TRANSLATE_KEY_STORE, translateKey);
   profile.topic      = sanitize(topic);
   profile.background = sanitize(document.getElementById('background').value.trim());
   profile.goal       = sanitize(document.getElementById('goal').value.trim());
@@ -1060,4 +1079,11 @@ window.addEventListener('DOMContentLoaded', () => {
   initFirebase();
   document.getElementById('btn-google-signin')?.addEventListener('click', signInWithGoogle);
   document.getElementById('btn-signout')?.addEventListener('click', signOutUser);
+  document.getElementById('btn-change-key')?.addEventListener('click', () => {
+    localStorage.removeItem(API_KEY_STORE);
+    document.getElementById('api-key-group').hidden = false;
+    document.getElementById('api-key-saved').hidden = true;
+    document.getElementById('api-key').value = '';
+    document.getElementById('api-key').focus();
+  });
 });

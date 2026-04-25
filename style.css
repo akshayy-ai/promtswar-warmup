@@ -402,6 +402,55 @@ input::placeholder, textarea::placeholder { color: var(--text-3); }
 }
 .btn-ghost:hover { background: var(--sb-btn-hov); color: var(--sb-text); }
 
+/* ── API key saved indicator ──────────────────────────────── */
+.api-configured {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: .625rem .875rem;
+  background: #F0FDF4;
+  border: 1.5px solid #86EFAC;
+  border-radius: var(--radius-sm);
+  margin-bottom: 1.25rem;
+}
+.api-configured-badge {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  font-size: .875rem;
+  font-weight: 600;
+  color: #15803D;
+}
+
+/* ── Advanced settings collapsible ───────────────────────── */
+.advanced-settings {
+  margin-top: 1rem;
+  border-top: 1px solid var(--border);
+  padding-top: .875rem;
+}
+.advanced-settings summary {
+  font-size: .8125rem;
+  font-weight: 600;
+  color: var(--text-3);
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: .375rem;
+  user-select: none;
+  margin-bottom: 0;
+}
+.advanced-settings summary::-webkit-details-marker { display: none; }
+.advanced-settings summary::before {
+  content: '›';
+  font-size: 1rem;
+  line-height: 1;
+  transition: transform var(--transition);
+}
+.advanced-settings[open] summary::before { transform: rotate(90deg); }
+.advanced-settings summary:hover { color: var(--text-2); }
+.advanced-inner { padding-top: 1rem; display: flex; flex-direction: column; gap: 0; }
+
 /* ── Auth Elements ────────────────────────────────────────── */
 .auth-avatar { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
 .auth-name { font-weight: 600; color: var(--text-1); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
