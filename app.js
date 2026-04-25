@@ -146,19 +146,32 @@ function initFirebase() {
     auth = firebase.auth();
     db   = firebase.firestore();
 
+    // Process any pending redirect result first, then hand off to onAuthStateChanged
     auth.getRedirectResult().then(result => {
       if (result && result.user) trackEvent('sign_in', { method: 'google' });
     }).catch(e => {
       if (e.code !== 'auth/no-auth-event') showToast('Sign-in failed: ' + e.message);
     });
 
+    let firstCall = true;
     auth.onAuthStateChanged(user => {
       currentUser = user;
-      updateAuthUI(user);
+      if (user) {
+        updateAuthUI(user);
+      } else if (!firstCall) {
+        // Only show login on null after the first call (sign-out), not on initial page load
+        // during redirect processing where null fires before the user state resolves
+        updateAuthUI(null);
+      } else {
+        // First call is null — could be redirect in progress; wait briefly then show login
+        setTimeout(() => {
+          if (!currentUser) updateAuthUI(null);
+        }, 2000);
+      }
+      firstCall = false;
     });
   } catch (e) {
     console.warn('Firebase unavailable:', e.message);
-    // Firebase failed — show sign-in button anyway so user sees the error state
     document.getElementById('login-loading').hidden = true;
     document.getElementById('btn-google-signin').hidden = false;
   }
@@ -166,8 +179,15 @@ function initFirebase() {
 
 async function signInWithGoogle() {
   if (!auth) return;
+  const provider = new firebase.auth.GoogleAuthProvider();
   try {
-    await auth.signInWithRedirect(new firebase.auth.GoogleAuthProvider());
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      // Popup works on localhost (no COOP restrictions)
+      const result = await auth.signInWithPopup(provider);
+      if (result.user) trackEvent('sign_in', { method: 'google_popup' });
+    } else {
+      await auth.signInWithRedirect(provider);
+    }
   } catch (e) {
     showToast('Sign-in failed. Please try again.');
   }
