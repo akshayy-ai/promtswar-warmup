@@ -699,6 +699,123 @@ kbd {
   margin-bottom: .3rem;
 }
 
+/* ── Login Screen ─────────────────────────────────────────── */
+.login-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+  background: linear-gradient(135deg, #EEF2FF 0%, #F8FAFC 60%, #E0E7FF 100%);
+}
+.login-card {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  padding: 2.5rem 2rem;
+  max-width: 420px;
+  width: 100%;
+  text-align: center;
+  border: 1px solid var(--border);
+}
+.login-card .logo {
+  justify-content: center;
+  margin-bottom: 1.5rem;
+}
+.login-headline {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--text-1);
+  margin-bottom: .5rem;
+  line-height: 1.25;
+}
+.login-sub {
+  color: var(--text-2);
+  font-size: .9375rem;
+  margin-bottom: 1.5rem;
+}
+.login-features {
+  list-style: none;
+  text-align: left;
+  margin: 0 0 1.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: .625rem;
+  background: var(--surface-2);
+  border-radius: var(--radius-md);
+  padding: 1rem 1.25rem;
+}
+.login-features li {
+  font-size: .9rem;
+  color: var(--text-2);
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+.btn-google-signin-lg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .75rem;
+  width: 100%;
+  padding: .8rem 1.25rem;
+  background: #fff;
+  color: #3c4043;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: box-shadow var(--transition), background var(--transition);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 1rem;
+}
+.btn-google-signin-lg:hover {
+  background: var(--surface-2);
+  box-shadow: var(--shadow-md);
+}
+.login-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .625rem;
+  color: var(--text-3);
+  font-size: .875rem;
+  padding: .8rem;
+  margin-bottom: 1rem;
+}
+.spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--border);
+  border-top-color: var(--brand);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.login-note {
+  font-size: .78rem;
+  color: var(--text-3);
+  margin: 0;
+}
+
+/* ── Setup user bar ───────────────────────────────────────── */
+.setup-user-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.75rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+.setup-user-info {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  font-size: .8125rem;
+}
+
 /* ── Responsive ───────────────────────────────────────────── */
 @media (max-width: 640px) {
   .learning-layout { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }

@@ -67,6 +67,7 @@ let lastRequestTime = 0;
 const MIN_REQUEST_INTERVAL_MS = 1000;
 
 // ── DOM refs ───────────────────────────────────────────────────
+const screenLogin    = document.getElementById('screen-login');
 const screenSetup    = document.getElementById('screen-setup');
 const screenLearning = document.getElementById('screen-learning');
 const setupForm      = document.getElementById('setup-form');
@@ -138,13 +139,12 @@ function restoreSession(data) {
 }
 
 // ── Firebase Auth & Firestore ──────────────────────────────────
-/** Initialises Firebase, Auth, and Firestore; reveals the auth section when ready. */
+/** Initialises Firebase, Auth, and Firestore; manages login/setup screen visibility. */
 function initFirebase() {
   try {
     firebase.initializeApp(FB_CONFIG);
     auth = firebase.auth();
     db   = firebase.firestore();
-    document.getElementById('auth-section').hidden = false;
 
     auth.getRedirectResult().then(result => {
       if (result && result.user) trackEvent('sign_in', { method: 'google' });
@@ -158,6 +158,9 @@ function initFirebase() {
     });
   } catch (e) {
     console.warn('Firebase unavailable:', e.message);
+    // Firebase failed — show sign-in button anyway so user sees the error state
+    document.getElementById('login-loading').hidden = true;
+    document.getElementById('btn-google-signin').hidden = false;
   }
 }
 
@@ -179,21 +182,32 @@ async function signOutUser() {
 }
 
 function updateAuthUI(user) {
-  const btnIn  = document.getElementById('btn-google-signin');
-  const info   = document.getElementById('auth-user-info');
   const avatar = document.getElementById('auth-avatar');
   const nameEl = document.getElementById('auth-name');
-  if (!btnIn) return;
+
   if (user) {
-    btnIn.hidden = true;
-    info.hidden  = false;
-    if (user.photoURL) { avatar.src = user.photoURL; avatar.hidden = false; }
-    nameEl.textContent = user.displayName || user.email || 'Signed in';
+    // Swap login → setup (unless already in learning screen)
+    screenLogin.hidden = true;
+    screenLogin.classList.remove('active');
+    if (screenLearning.hidden !== false) {
+      screenSetup.hidden = false;
+      screenSetup.classList.add('active');
+    }
+    if (avatar && user.photoURL) { avatar.src = user.photoURL; avatar.hidden = false; }
+    if (nameEl) nameEl.textContent = user.displayName || user.email || '';
     const local = loadSession();
     if (local) sessionBanner.hidden = false;
   } else {
-    btnIn.hidden = false;
-    info.hidden  = true;
+    // Sign-out: return to login, hide everything else
+    screenLogin.hidden = false;
+    screenLogin.classList.add('active');
+    screenSetup.hidden = true;
+    screenSetup.classList.remove('active');
+    screenLearning.hidden = true;
+    screenLearning.classList.remove('active');
+    // Show sign-in button, hide loading spinner
+    document.getElementById('login-loading').hidden = true;
+    document.getElementById('btn-google-signin').hidden = false;
   }
 }
 
@@ -968,11 +982,7 @@ document.getElementById('btn-new-session').addEventListener('click', () => {
 
 // ── Init ───────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
-  const data = loadSession();
-  if (data?.profile?.topic) sessionBanner.hidden = false;
-
   initFirebase();
-
   document.getElementById('btn-google-signin')?.addEventListener('click', signInWithGoogle);
   document.getElementById('btn-signout')?.addEventListener('click', signOutUser);
 });
