@@ -149,6 +149,8 @@ textarea {
 }
 
 select { cursor: pointer; }
+select optgroup { font-weight: 700; color: var(--text-2); }
+select option   { font-weight: 400; color: var(--text-1); }
 input:focus, select:focus, textarea:focus {
   border-color: var(--brand);
   box-shadow: 0 0 0 3px rgba(79,70,229,.12);
