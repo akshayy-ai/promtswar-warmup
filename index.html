@@ -7,7 +7,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=11" />
+  <!-- Google Analytics 4 -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-GL9PBMHZ4G"></script>
+  <link rel="stylesheet" href="style.css?v=12" />
 </head>
 <body>
   <a href="#chat-messages" class="skip-nav">Skip to conversation</a>
@@ -27,6 +29,25 @@
 
       <h1>What would you like to learn today?</h1>
       <p class="subtitle">I'll adapt to your pace and build understanding step by step.</p>
+
+      <!-- Google Sign-In (shown when Firebase is ready) -->
+      <div id="auth-section" class="auth-section" hidden aria-label="Google account">
+        <button type="button" id="btn-google-signin" class="btn-google-signin" aria-label="Sign in with Google to save sessions to the cloud">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+            <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908C16.658 12.015 17.64 10.741 17.64 9.2z"/>
+            <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.258c-.806.54-1.837.861-3.048.861-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/>
+            <path fill="#FBBC05" d="M3.964 10.712A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A9.01 9.01 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.33z"/>
+            <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A9 9 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/>
+          </svg>
+          Sign in with Google
+        </button>
+        <div id="auth-user-info" class="auth-user-info" hidden aria-live="polite">
+          <img id="auth-avatar" class="auth-avatar" src="" alt="Profile picture" width="28" height="28" hidden />
+          <span id="auth-name" class="auth-name"></span>
+          <span class="auth-cloud-badge" aria-label="Sessions saved to Google Cloud">☁️ Saved to cloud</span>
+          <button type="button" id="btn-signout" class="btn-link" aria-label="Sign out of Google">Sign out</button>
+        </div>
+      </div>
 
       <div id="session-banner" class="session-banner" hidden aria-live="polite">
         <span>📚 Previous session found.</span>
@@ -152,6 +173,10 @@
     </div>
   </div>
 
-  <script src="app.js?v=11"></script>
+  <!-- Firebase SDKs (loaded before app.js) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="app.js?v=12"></script>
 </body>
 </html>

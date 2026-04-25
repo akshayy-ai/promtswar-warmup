@@ -1,5 +1,31 @@
 'use strict';
 
+// ── Google Analytics 4 ─────────────────────────────────────────
+const GA_ID = 'G-GL9PBMHZ4G';
+window.dataLayer = window.dataLayer || [];
+function gtag() { window.dataLayer.push(arguments); }
+gtag('js', new Date());
+gtag('config', GA_ID, { anonymize_ip: true });
+
+function trackEvent(name, params) {
+  try { gtag('event', name, params || {}); } catch (_) {}
+}
+
+// ── Firebase configuration ─────────────────────────────────────
+const FB_CONFIG = {
+  apiKey:            'AIzaSyB0eSDEFJb2yHp7kuD4PVg-K40gor3cXlE',
+  authDomain:        'promtswar-warmup-4e479.firebaseapp.com',
+  projectId:         'promtswar-warmup-4e479',
+  storageBucket:     'promtswar-warmup-4e479.firebasestorage.app',
+  messagingSenderId: '945458857602',
+  appId:             '1:945458857602:web:c37d2c4edede55b4d0969b',
+  measurementId:     GA_ID,
+};
+
+let db          = null;
+let auth        = null;
+let currentUser = null;
+
 // ── Gemini API ─────────────────────────────────────────────────
 const GEMINI_MODEL  = 'gemini-2.5-flash';
 const GEMINI_URL    = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?alt=sse`;
@@ -47,7 +73,7 @@ const sidebarTopic   = document.getElementById('sidebar-topic');
 const conceptsList   = document.getElementById('concepts-list');
 const sessionBanner  = document.getElementById('session-banner');
 
-// ── Session persistence ────────────────────────────────────────
+// ── Session persistence (localStorage) ────────────────────────
 const SESSION_KEY = 'lc_session_v2';
 
 function saveSession() {
@@ -56,6 +82,7 @@ function saveSession() {
       profile:   { ...profile },
       history:   history.slice(-30),
     }));
+    saveSessionToFirestore();
   } catch (_) {}
 }
 
@@ -71,6 +98,7 @@ function loadSession() {
 
 function clearSession() {
   localStorage.removeItem(SESSION_KEY);
+  clearSessionFromFirestore();
 }
 
 function restoreSession(data) {
@@ -79,12 +107,96 @@ function restoreSession(data) {
   startLearningScreen();
   renderConcepts();
   updateProgressUI();
-  // Replay messages
   history.forEach(msg => {
     if (msg.role === 'user')  appendMessage('user', msg.parts[0].text, false);
     if (msg.role === 'model') appendMessage('assistant', msg.parts[0].text, false);
   });
   scrollToBottom();
+}
+
+// ── Firebase Auth & Firestore ──────────────────────────────────
+function initFirebase() {
+  try {
+    firebase.initializeApp(FB_CONFIG);
+    auth = firebase.auth();
+    db   = firebase.firestore();
+    document.getElementById('auth-section').hidden = false;
+    auth.onAuthStateChanged(user => {
+      currentUser = user;
+      updateAuthUI(user);
+    });
+  } catch (e) {
+    console.warn('Firebase unavailable:', e.message);
+  }
+}
+
+async function signInWithGoogle() {
+  if (!auth) return;
+  try {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    await auth.signInWithPopup(provider);
+    trackEvent('sign_in', { method: 'google' });
+  } catch (e) {
+    showToast('Sign-in failed. Please try again.');
+  }
+}
+
+async function signOutUser() {
+  if (!auth) return;
+  try { await auth.signOut(); } catch (_) {}
+  currentUser = null;
+  updateAuthUI(null);
+  trackEvent('sign_out');
+}
+
+function updateAuthUI(user) {
+  const btnIn  = document.getElementById('btn-google-signin');
+  const info   = document.getElementById('auth-user-info');
+  const avatar = document.getElementById('auth-avatar');
+  const nameEl = document.getElementById('auth-name');
+  if (!btnIn) return;
+  if (user) {
+    btnIn.hidden = true;
+    info.hidden  = false;
+    if (user.photoURL) { avatar.src = user.photoURL; avatar.hidden = false; }
+    nameEl.textContent = user.displayName || user.email;
+    const local = loadSession();
+    if (local) sessionBanner.hidden = false;
+  } else {
+    btnIn.hidden = false;
+    info.hidden  = true;
+  }
+}
+
+async function saveSessionToFirestore() {
+  if (!db || !currentUser) return;
+  try {
+    await db.collection('sessions').doc(currentUser.uid).set({
+      profile:   { ...profile },
+      history:   history.slice(-30),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+  } catch (e) {
+    console.warn('Firestore save failed:', e.message);
+  }
+}
+
+async function getSessionFromFirestore() {
+  if (!db || !currentUser) return null;
+  try {
+    const doc = await db.collection('sessions').doc(currentUser.uid).get();
+    if (doc.exists && doc.data()?.profile?.topic) return doc.data();
+  } catch (e) {
+    console.warn('Firestore load failed:', e.message);
+  }
+  return null;
+}
+
+async function clearSessionFromFirestore() {
+  if (!db || !currentUser) return;
+  try {
+    await db.collection('sessions').doc(currentUser.uid).delete();
+  } catch (_) {}
 }
 
 // ── System prompt ──────────────────────────────────────────────
@@ -225,8 +337,10 @@ function applyMeta(meta) {
   }
   if (meta.concepts_mastered && meta.concepts_mastered !== 'none') {
     const items = meta.concepts_mastered.split(',').map(s => s.trim()).filter(Boolean);
+    const newConcepts = items.filter(c => !profile.concepts.includes(c));
     profile.concepts = [...new Set([...profile.concepts, ...items])];
     renderConcepts();
+    newConcepts.forEach(c => trackEvent('concept_mastered', { concept: c, topic: profile.topic }));
   }
   if (meta.concepts_struggling && meta.concepts_struggling !== 'none') {
     profile.struggling = meta.concepts_struggling.split(',').map(s => s.trim()).filter(Boolean);
@@ -286,6 +400,7 @@ function speak(text, btn) {
   };
 
   speechSynthesis.speak(utterance);
+  trackEvent('tts_listen', { topic: profile.topic });
 }
 
 // ── YouTube search ─────────────────────────────────────────────
@@ -318,7 +433,6 @@ function appendMessage(role, rawText, withActions = true) {
     const actions = document.createElement('div');
     actions.className = 'message-actions';
 
-    // TTS button
     if (window.speechSynthesis) {
       const ttsBtn = document.createElement('button');
       ttsBtn.className = 'msg-action-btn';
@@ -329,7 +443,6 @@ function appendMessage(role, rawText, withActions = true) {
       actions.appendChild(ttsBtn);
     }
 
-    // Copy button
     if (navigator.clipboard) {
       const copyBtn = document.createElement('button');
       copyBtn.className = 'msg-action-btn';
@@ -343,12 +456,12 @@ function appendMessage(role, rawText, withActions = true) {
       actions.appendChild(copyBtn);
     }
 
-    // YouTube search for current topic
     const ytBtn = document.createElement('button');
     ytBtn.className = 'msg-action-btn';
     ytBtn.setAttribute('aria-label', `Search YouTube for ${profile.topic}`);
     ytBtn.innerHTML = '▶ YouTube';
     ytBtn.addEventListener('click', () => {
+      trackEvent('youtube_search', { topic: profile.topic });
       window.open(youtubeSearchUrl(profile.topic), '_blank', 'noopener,noreferrer');
     });
     actions.appendChild(ytBtn);
@@ -394,12 +507,14 @@ async function sendMessage(text) {
     ? `Please start our learning session. My topic is "${sanitize(profile.topic)}". Begin with your opening diagnostic question.`
     : sanitize(text);
 
-  if (text !== '__init__') appendMessage('user', text);
+  if (text !== '__init__') {
+    appendMessage('user', text);
+    trackEvent('message_sent', { topic: profile.topic, turn: profile.turnCount });
+  }
 
   showTyping();
 
   try {
-    // Prepare streaming bubble
     hideTyping();
     const streamDiv    = document.createElement('div');
     streamDiv.className = 'message assistant';
@@ -421,7 +536,6 @@ async function sendMessage(text) {
       scrollToBottom();
     });
 
-    // Finalise bubble — remove cursor, add actions
     bubble.classList.remove('streaming-cursor');
     bubble.id = '';
     bubble.innerHTML = parseMarkdown(stripMeta(fullText));
@@ -458,6 +572,7 @@ async function sendMessage(text) {
     ytBtn.setAttribute('aria-label', `Search YouTube for ${profile.topic}`);
     ytBtn.innerHTML = '▶ YouTube';
     ytBtn.addEventListener('click', () => {
+      trackEvent('youtube_search', { topic: profile.topic });
       window.open(youtubeSearchUrl(profile.topic), '_blank', 'noopener,noreferrer');
     });
     actions.appendChild(ytBtn);
@@ -551,6 +666,13 @@ setupForm.addEventListener('submit', (e) => {
   profile.background = sanitize(document.getElementById('background').value.trim());
   profile.goal       = sanitize(document.getElementById('goal').value.trim());
 
+  trackEvent('session_start', {
+    topic:          profile.topic,
+    has_background: !!profile.background,
+    has_goal:       !!profile.goal,
+    signed_in:      !!currentUser,
+  });
+
   clearSession();
   chatMessages.innerHTML = '';
   history = [];
@@ -560,12 +682,23 @@ setupForm.addEventListener('submit', (e) => {
 });
 
 // ── Restore session button ─────────────────────────────────────
-document.getElementById('btn-restore')?.addEventListener('click', () => {
+document.getElementById('btn-restore')?.addEventListener('click', async () => {
   const key = document.getElementById('api-key').value.trim();
   if (!key) { showToast('Please enter your Gemini API key first.'); return; }
   apiKey = key;
+
+  const cloudData = await getSessionFromFirestore();
+  if (cloudData) {
+    trackEvent('session_restored', { source: 'firestore' });
+    restoreSession(cloudData);
+    return;
+  }
+
   const data = loadSession();
-  if (data) restoreSession(data);
+  if (data) {
+    trackEvent('session_restored', { source: 'localstorage' });
+    restoreSession(data);
+  }
 });
 
 // ── Chat form ──────────────────────────────────────────────────
@@ -611,13 +744,17 @@ const actionMap = {
 document.querySelectorAll('.action-btn').forEach((btn) => {
   btn.addEventListener('click', () => {
     const text = actionMap[btn.dataset.action];
-    if (text && !isLoading) sendMessage(text);
+    if (text && !isLoading) {
+      trackEvent('quick_action', { action: btn.dataset.action, topic: profile.topic });
+      sendMessage(text);
+    }
   });
 });
 
 // ── New session button ─────────────────────────────────────────
 document.getElementById('btn-new-session').addEventListener('click', () => {
   if (currentUtterance) { speechSynthesis.cancel(); currentUtterance = null; }
+  trackEvent('new_session');
   clearSession();
   history    = [];
   Object.assign(profile, { level:'unknown', understanding:0, concepts:[], struggling:[], turnCount:0 });
@@ -636,10 +773,15 @@ document.getElementById('btn-new-session').addEventListener('click', () => {
   screenSetup.hidden = false;
 });
 
-// ── Check for existing session on load ────────────────────────
+// ── Init ───────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
   const data = loadSession();
   if (data?.profile?.topic) {
     sessionBanner.hidden = false;
   }
+
+  initFirebase();
+
+  document.getElementById('btn-google-signin')?.addEventListener('click', signInWithGoogle);
+  document.getElementById('btn-signout')?.addEventListener('click', signOutUser);
 });
