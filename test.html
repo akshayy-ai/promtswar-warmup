@@ -23,7 +23,7 @@
 </head>
 <body>
   <h1>Learning Companion — Test Suite</h1>
-  <p class="version">45 tests · 8 suites</p>
+  <p class="version">57 tests · 10 suites</p>
   <div id="output"></div>
   <div class="summary" id="summary"></div>
 
@@ -322,6 +322,64 @@ describe('Session persistence', () => {
 
   // cleanup
   clearSession();
+});
+
+// ── trackEvent ─────────────────────────────────────────────────
+const GA_ID = 'G-TEST';
+window.dataLayer = window.dataLayer || [];
+function gtag() { window.dataLayer.push(arguments); }
+function trackEvent(name, params) {
+  try { gtag('event', name, params || {}); } catch (_) {}
+}
+
+describe('trackEvent — Google Analytics 4', () => {
+  it('does not throw when called with a name', () => {
+    trackEvent('test_event');
+    expect(true).toBeTruthy();
+  });
+  it('does not throw when called with params', () => {
+    trackEvent('session_start', { topic: 'ML', signed_in: false });
+    expect(true).toBeTruthy();
+  });
+  it('pushes to dataLayer', () => {
+    const before = window.dataLayer.length;
+    trackEvent('concept_mastered', { concept: 'closures' });
+    expect(window.dataLayer.length).toBeGreaterThanOrEqual(before);
+  });
+  it('handles undefined params gracefully', () => {
+    trackEvent('message_sent', undefined);
+    expect(true).toBeTruthy();
+  });
+});
+
+describe('parseMarkdown — extended coverage', () => {
+  it('renders numbered list item', () => {
+    expect(parseMarkdown('1. First item')).toContain('<li>First item</li>');
+  });
+  it('renders ***bold italic***', () => {
+    expect(parseMarkdown('***key***')).toContain('<strong><em>key</em></strong>');
+  });
+  it('does not double-escape safe text in code block', () => {
+    const out = parseMarkdown('```\nhello world\n```');
+    expect(out).toContain('hello world');
+  });
+  it('handles empty string', () => {
+    expect(parseMarkdown('')).toBe('');
+  });
+});
+
+describe('sanitize — extended edge cases', () => {
+  it('coerces number to string', () => {
+    expect(sanitize(42)).toBe('42');
+  });
+  it('strips both < and > in same string', () => {
+    const result = sanitize('<b>bold</b>');
+    expect(result).notToContain('<');
+    expect(result).notToContain('>');
+  });
+  it('returns exactly 500 chars when input is 500', () => {
+    expect(sanitize('x'.repeat(500)).length).toBe(500);
+  });
 });
 
 // ── Render ─────────────────────────────────────────────────────

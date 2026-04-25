@@ -419,6 +419,47 @@ function youtubeSearchUrl(concept) {
   return `https://www.youtube.com/results?search_query=${encodeURIComponent(`learn ${concept}`)}`;
 }
 
+// ── Message action buttons (TTS / Copy / YouTube) ──────────────
+function createMessageActions(plainText) {
+  const actions = document.createElement('div');
+  actions.className = 'message-actions';
+
+  if (window.speechSynthesis) {
+    const ttsBtn = document.createElement('button');
+    ttsBtn.className = 'msg-action-btn';
+    ttsBtn.setAttribute('data-tts', '');
+    ttsBtn.setAttribute('aria-label', 'Listen to this message');
+    ttsBtn.innerHTML = '🔊 Listen';
+    ttsBtn.addEventListener('click', () => speak(plainText, ttsBtn));
+    actions.appendChild(ttsBtn);
+  }
+
+  if (navigator.clipboard) {
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'msg-action-btn';
+    copyBtn.setAttribute('aria-label', 'Copy message text');
+    copyBtn.innerHTML = '📋 Copy';
+    copyBtn.addEventListener('click', async () => {
+      await navigator.clipboard.writeText(plainText);
+      copyBtn.innerHTML = '✓ Copied';
+      setTimeout(() => { copyBtn.innerHTML = '📋 Copy'; }, 1500);
+    });
+    actions.appendChild(copyBtn);
+  }
+
+  const ytBtn = document.createElement('button');
+  ytBtn.className = 'msg-action-btn';
+  ytBtn.setAttribute('aria-label', `Search YouTube for ${profile.topic}`);
+  ytBtn.innerHTML = '▶ YouTube';
+  ytBtn.addEventListener('click', () => {
+    trackEvent('youtube_search', { topic: profile.topic });
+    window.open(youtubeSearchUrl(profile.topic), '_blank', 'noopener,noreferrer');
+  });
+  actions.appendChild(ytBtn);
+
+  return actions;
+}
+
 // ── Render a chat message ──────────────────────────────────────
 function appendMessage(role, rawText, withActions = true) {
   const clean = stripMeta(rawText);
@@ -439,46 +480,7 @@ function appendMessage(role, rawText, withActions = true) {
   bubble.innerHTML = parseMarkdown(clean);
 
   content.appendChild(bubble);
-
-  if (role === 'assistant' && withActions) {
-    const actions = document.createElement('div');
-    actions.className = 'message-actions';
-
-    if (window.speechSynthesis) {
-      const ttsBtn = document.createElement('button');
-      ttsBtn.className = 'msg-action-btn';
-      ttsBtn.setAttribute('data-tts', '');
-      ttsBtn.setAttribute('aria-label', 'Listen to this message');
-      ttsBtn.innerHTML = '🔊 Listen';
-      ttsBtn.addEventListener('click', () => speak(clean, ttsBtn));
-      actions.appendChild(ttsBtn);
-    }
-
-    if (navigator.clipboard) {
-      const copyBtn = document.createElement('button');
-      copyBtn.className = 'msg-action-btn';
-      copyBtn.setAttribute('aria-label', 'Copy message text');
-      copyBtn.innerHTML = '📋 Copy';
-      copyBtn.addEventListener('click', async () => {
-        await navigator.clipboard.writeText(clean);
-        copyBtn.innerHTML = '✓ Copied';
-        setTimeout(() => { copyBtn.innerHTML = '📋 Copy'; }, 1500);
-      });
-      actions.appendChild(copyBtn);
-    }
-
-    const ytBtn = document.createElement('button');
-    ytBtn.className = 'msg-action-btn';
-    ytBtn.setAttribute('aria-label', `Search YouTube for ${profile.topic}`);
-    ytBtn.innerHTML = '▶ YouTube';
-    ytBtn.addEventListener('click', () => {
-      trackEvent('youtube_search', { topic: profile.topic });
-      window.open(youtubeSearchUrl(profile.topic), '_blank', 'noopener,noreferrer');
-    });
-    actions.appendChild(ytBtn);
-
-    content.appendChild(actions);
-  }
+  if (role === 'assistant' && withActions) content.appendChild(createMessageActions(clean));
 
   div.appendChild(avatar);
   div.appendChild(content);
@@ -552,43 +554,7 @@ async function sendMessage(text) {
     bubble.innerHTML = parseMarkdown(stripMeta(fullText));
 
     const contentEl = streamDiv.querySelector('.message-content');
-    const actions   = document.createElement('div');
-    actions.className = 'message-actions';
-
-    if (window.speechSynthesis) {
-      const ttsBtn = document.createElement('button');
-      ttsBtn.className = 'msg-action-btn';
-      ttsBtn.setAttribute('data-tts', '');
-      ttsBtn.setAttribute('aria-label', 'Listen to this message');
-      ttsBtn.innerHTML = '🔊 Listen';
-      ttsBtn.addEventListener('click', () => speak(stripMeta(fullText), ttsBtn));
-      actions.appendChild(ttsBtn);
-    }
-
-    if (navigator.clipboard) {
-      const copyBtn = document.createElement('button');
-      copyBtn.className = 'msg-action-btn';
-      copyBtn.setAttribute('aria-label', 'Copy message');
-      copyBtn.innerHTML = '📋 Copy';
-      copyBtn.addEventListener('click', async () => {
-        await navigator.clipboard.writeText(stripMeta(fullText));
-        copyBtn.innerHTML = '✓ Copied';
-        setTimeout(() => { copyBtn.innerHTML = '📋 Copy'; }, 1500);
-      });
-      actions.appendChild(copyBtn);
-    }
-
-    const ytBtn = document.createElement('button');
-    ytBtn.className = 'msg-action-btn';
-    ytBtn.setAttribute('aria-label', `Search YouTube for ${profile.topic}`);
-    ytBtn.innerHTML = '▶ YouTube';
-    ytBtn.addEventListener('click', () => {
-      trackEvent('youtube_search', { topic: profile.topic });
-      window.open(youtubeSearchUrl(profile.topic), '_blank', 'noopener,noreferrer');
-    });
-    actions.appendChild(ytBtn);
-
-    contentEl.appendChild(actions);
+    contentEl.appendChild(createMessageActions(stripMeta(fullText)));
 
     const meta = parseMeta(fullText);
     applyMeta(meta);
