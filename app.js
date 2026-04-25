@@ -2,17 +2,18 @@
 
 // ── Gemini API ─────────────────────────────────────────────────
 const GEMINI_MODEL        = 'gemini-2.0-flash';
+const VERTEX_MODEL        = 'gemini-2.0-flash-001';   // Vertex AI stable model ID
 const GCP_PROJECT         = 'promtswar-warmup';
 const GCP_REGION          = 'us-central1';
-// AI Studio endpoint (API key)
+// AI Studio endpoint (API key: starts with AIza)
 const AISTUDIO_STREAM_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?alt=sse`;
-// Vertex AI endpoint (Bearer token) — uses GCP credits
-const VERTEX_STREAM_URL   = `https://${GCP_REGION}-aiplatform.googleapis.com/v1/projects/${GCP_PROJECT}/locations/${GCP_REGION}/publishers/google/models/${GEMINI_MODEL}:streamGenerateContent`;
+// Vertex AI endpoint (Bearer token: starts with ya29) — uses GCP credits, ?alt=sse for SSE streaming
+const VERTEX_STREAM_URL   = `https://${GCP_REGION}-aiplatform.googleapis.com/v1/projects/${GCP_PROJECT}/locations/${GCP_REGION}/publishers/google/models/${VERTEX_MODEL}:streamGenerateContent?alt=sse`;
 
-function isVertexToken(key) { return key.startsWith('ya29.'); }
+function isVertexToken(key) { return key.trim().startsWith('ya29.'); }
 
-function buildFetchOptions(body) {
-  const key = apiKey;
+function buildFetchOptions() {
+  const key = apiKey.trim();
   if (isVertexToken(key)) {
     return {
       url:     VERTEX_STREAM_URL,
