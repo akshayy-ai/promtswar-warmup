@@ -2,7 +2,7 @@
 
 // ── Gemini API ─────────────────────────────────────────────────
 const GEMINI_MODEL        = 'gemini-2.0-flash';
-const VERTEX_MODEL        = 'gemini-2.0-flash-001';   // Vertex AI stable model ID
+const VERTEX_MODEL        = 'gemini-2.0-flash';        // Vertex AI uses same name without version suffix
 const GCP_PROJECT         = 'promtswar-warmup';
 const GCP_REGION          = 'us-central1';
 // AI Studio endpoint (API key: starts with AIza)
