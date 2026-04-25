@@ -181,15 +181,15 @@ async function signInWithGoogle() {
   if (!auth) return;
   const provider = new firebase.auth.GoogleAuthProvider();
   try {
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-      // Popup works on localhost (no COOP restrictions)
-      const result = await auth.signInWithPopup(provider);
-      if (result.user) trackEvent('sign_in', { method: 'google_popup' });
-    } else {
-      await auth.signInWithRedirect(provider);
-    }
+    const result = await auth.signInWithPopup(provider);
+    if (result.user) trackEvent('sign_in', { method: 'google_popup' });
   } catch (e) {
-    showToast('Sign-in failed. Please try again.');
+    // Popup blocked or COOP issue — fall back to redirect
+    if (e.code === 'auth/popup-blocked' || e.code === 'auth/popup-closed-by-user') {
+      try { await auth.signInWithRedirect(provider); } catch (_) {}
+    } else {
+      showToast('Sign-in failed: ' + (e.message || 'please try again'));
+    }
   }
 }
 
