@@ -36,9 +36,9 @@
 
       <form id="setup-form" novalidate>
         <div class="field-group">
-          <label for="api-key">Gemini API Key <span class="required" aria-label="required">*</span></label>
-          <input type="password" id="api-key" placeholder="AIza…" autocomplete="off" required aria-describedby="api-key-hint" />
-          <span id="api-key-hint" class="field-hint">Never stored — only used in your browser for this session.</span>
+          <label for="api-key">Gemini API Key or Vertex AI Token <span class="required" aria-label="required">*</span></label>
+          <input type="password" id="api-key" placeholder="AIza… or ya29…" autocomplete="off" required aria-describedby="api-key-hint" />
+          <span id="api-key-hint" class="field-hint">AI Studio key (AIza…) or Vertex AI token (ya29… via <code>gcloud auth print-access-token</code>). Never stored.</span>
         </div>
 
         <div class="field-group">

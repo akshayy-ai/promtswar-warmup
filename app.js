@@ -1,8 +1,29 @@
 'use strict';
 
 // ── Gemini API ─────────────────────────────────────────────────
-const GEMINI_MODEL      = 'gemini-2.0-flash';
-const GEMINI_STREAM_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?alt=sse`;
+const GEMINI_MODEL        = 'gemini-2.0-flash';
+const GCP_PROJECT         = 'promtswar-warmup';
+const GCP_REGION          = 'us-central1';
+// AI Studio endpoint (API key)
+const AISTUDIO_STREAM_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?alt=sse`;
+// Vertex AI endpoint (Bearer token) — uses GCP credits
+const VERTEX_STREAM_URL   = `https://${GCP_REGION}-aiplatform.googleapis.com/v1/projects/${GCP_PROJECT}/locations/${GCP_REGION}/publishers/google/models/${GEMINI_MODEL}:streamGenerateContent`;
+
+function isVertexToken(key) { return key.startsWith('ya29.'); }
+
+function buildFetchOptions(body) {
+  const key = apiKey;
+  if (isVertexToken(key)) {
+    return {
+      url:     VERTEX_STREAM_URL,
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+    };
+  }
+  return {
+    url:     `${AISTUDIO_STREAM_URL}&key=${encodeURIComponent(key)}`,
+    headers: { 'Content-Type': 'application/json' },
+  };
+}
 
 // ── Learner profile ────────────────────────────────────────────
 const profile = {
@@ -144,11 +165,8 @@ async function callGeminiStream(userMessage, onChunk) {
     ],
   };
 
-  const res = await fetch(`${GEMINI_STREAM_URL}&key=${encodeURIComponent(apiKey)}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
+  const { url, headers } = buildFetchOptions();
+  const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
