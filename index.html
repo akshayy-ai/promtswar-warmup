@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Learning Companion</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Setup Screen -->
+  <div id="screen-setup" class="screen active" role="main" aria-label="Learning setup">
+    <div class="setup-container">
+      <div class="logo">
+        <svg width="40" height="40" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+          <circle cx="20" cy="20" r="20" fill="#4F46E5"/>
+          <path d="M12 20C12 15.6 15.6 12 20 12C24.4 12 28 15.6 28 20" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+          <circle cx="20" cy="26" r="3" fill="white"/>
+          <path d="M20 23V21" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+        </svg>
+        <span>Learning Companion</span>
+      </div>
+
+      <h1>What would you like to learn today?</h1>
+      <p class="subtitle">I'll adapt to your pace and build understanding step by step.</p>
+
+      <form id="setup-form" novalidate>
+        <div class="field-group">
+          <label for="api-key">Gemini API Key <span class="required" aria-label="required">*</span></label>
+          <input
+            type="password"
+            id="api-key"
+            placeholder="AIza..."
+            autocomplete="off"
+            required
+            aria-describedby="api-key-hint"
+          />
+          <span id="api-key-hint" class="field-hint">Your key is never stored or sent anywhere except Google's API.</span>
+        </div>
+
+        <div class="field-group">
+          <label for="topic">Topic to Learn <span class="required" aria-label="required">*</span></label>
+          <input
+            type="text"
+            id="topic"
+            placeholder="e.g. Neural networks, Quantum computing, Roman history…"
+            required
+            aria-describedby="topic-hint"
+          />
+          <span id="topic-hint" class="field-hint">Be as specific or broad as you like.</span>
+        </div>
+
+        <div class="field-group">
+          <label for="background">Your Background <span class="optional">(optional)</span></label>
+          <input
+            type="text"
+            id="background"
+            placeholder="e.g. Software engineer with no ML experience"
+            aria-describedby="background-hint"
+          />
+          <span id="background-hint" class="field-hint">Helps me tailor analogies and examples for you.</span>
+        </div>
+
+        <div class="field-group">
+          <label for="goal">Learning Goal <span class="optional">(optional)</span></label>
+          <input
+            type="text"
+            id="goal"
+            placeholder="e.g. Understand enough to read research papers"
+            aria-describedby="goal-hint"
+          />
+          <span id="goal-hint" class="field-hint">What do you want to be able to do after this session?</span>
+        </div>
+
+        <button type="submit" class="btn-primary" id="start-btn">
+          Start Learning
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path d="M3 8H13M13 8L9 4M13 8L9 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Learning Screen -->
+  <div id="screen-learning" class="screen" role="main" aria-label="Learning session" hidden>
+    <div class="learning-layout">
+
+      <!-- Sidebar -->
+      <aside class="sidebar" aria-label="Learning progress">
+        <div class="sidebar-header">
+          <button id="btn-new-session" class="btn-ghost" aria-label="Start new session">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path d="M2 8C2 4.68 4.68 2 8 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              <path d="M14 8C14 11.32 11.32 14 8 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              <path d="M5.5 2.5L2 2L2.5 5.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M10.5 13.5L14 14L13.5 10.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            New Session
+          </button>
+        </div>
+
+        <div class="profile-card" aria-live="polite" aria-label="Learner profile">
+          <div class="profile-topic" id="sidebar-topic">—</div>
+
+          <div class="level-row">
+            <span class="label">Level</span>
+            <span class="badge" id="sidebar-level">Assessing…</span>
+          </div>
+
+          <div class="progress-row">
+            <span class="label">Understanding</span>
+            <div class="progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-label="Understanding score">
+              <div class="progress-fill" id="progress-fill"></div>
+            </div>
+            <span class="progress-pct" id="progress-pct">0%</span>
+          </div>
+        </div>
+
+        <div class="concepts-section">
+          <h2 class="section-title">Concepts covered</h2>
+          <ul id="concepts-list" class="concepts-list" aria-label="Concepts covered so far">
+            <li class="concept-placeholder">Nothing yet — let's start!</li>
+          </ul>
+        </div>
+
+        <div class="actions-section">
+          <h2 class="section-title">Quick actions</h2>
+          <div class="action-buttons" role="group" aria-label="Learning mode actions">
+            <button class="action-btn" data-action="simpler" aria-label="Explain more simply">
+              <span class="action-icon">🔽</span> Simpler
+            </button>
+            <button class="action-btn" data-action="deeper" aria-label="Go deeper into topic">
+              <span class="action-icon">🔼</span> Go Deeper
+            </button>
+            <button class="action-btn" data-action="example" aria-label="Give me an example">
+              <span class="action-icon">💡</span> Example
+            </button>
+            <button class="action-btn" data-action="quiz" aria-label="Quiz me on this">
+              <span class="action-icon">🎯</span> Quiz Me
+            </button>
+            <button class="action-btn" data-action="summary" aria-label="Summarize what I've learned">
+              <span class="action-icon">📋</span> Summary
+            </button>
+            <button class="action-btn" data-action="next" aria-label="Move to next concept">
+              <span class="action-icon">➡️</span> Next Topic
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Chat Area -->
+      <section class="chat-section" aria-label="Conversation">
+        <div class="chat-messages" id="chat-messages" role="log" aria-live="polite" aria-label="Chat messages">
+          <!-- Messages rendered by JS -->
+        </div>
+
+        <div class="chat-input-area">
+          <form id="chat-form" novalidate>
+            <textarea
+              id="user-input"
+              placeholder="Ask anything, answer questions, or say 'I don't understand'…"
+              rows="1"
+              aria-label="Your message"
+              required
+            ></textarea>
+            <button type="submit" id="send-btn" class="btn-send" aria-label="Send message" disabled>
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                <path d="M4 10H16M16 10L11 5M16 10L11 15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+          </form>
+          <p class="input-hint">Press <kbd>Enter</kbd> to send · <kbd>Shift+Enter</kbd> for new line</p>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
