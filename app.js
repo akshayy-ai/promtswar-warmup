@@ -181,31 +181,28 @@ async function signOutUser() {
   trackEvent('sign_out');
 }
 
+/** Shows exactly one screen; hides the other two. */
+function showScreen(name) {
+  const screens = { login: screenLogin, setup: screenSetup, learning: screenLearning };
+  Object.entries(screens).forEach(([key, el]) => {
+    const visible = key === name;
+    el.hidden = !visible;
+    el.classList.toggle('active', visible);
+  });
+}
+
 function updateAuthUI(user) {
   const avatar = document.getElementById('auth-avatar');
   const nameEl = document.getElementById('auth-name');
 
   if (user) {
-    // Swap login → setup (unless already in learning screen)
-    screenLogin.hidden = true;
-    screenLogin.classList.remove('active');
-    if (screenLearning.hidden !== false) {
-      screenSetup.hidden = false;
-      screenSetup.classList.add('active');
-    }
+    showScreen('setup');
     if (avatar && user.photoURL) { avatar.src = user.photoURL; avatar.hidden = false; }
     if (nameEl) nameEl.textContent = user.displayName || user.email || '';
     const local = loadSession();
     if (local) sessionBanner.hidden = false;
   } else {
-    // Sign-out: return to login, hide everything else
-    screenLogin.hidden = false;
-    screenLogin.classList.add('active');
-    screenSetup.hidden = true;
-    screenSetup.classList.remove('active');
-    screenLearning.hidden = true;
-    screenLearning.classList.remove('active');
-    // Show sign-in button, hide loading spinner
+    showScreen('login');
     document.getElementById('login-loading').hidden = true;
     document.getElementById('btn-google-signin').hidden = false;
   }
@@ -846,10 +843,7 @@ function showCountdown(prefix, seconds, onDone) {
 
 // ── Screen transition ──────────────────────────────────────────
 function startLearningScreen() {
-  screenSetup.classList.remove('active');
-  screenSetup.hidden = true;
-  screenLearning.classList.add('active');
-  screenLearning.hidden = false;
+  showScreen('learning');
   sidebarTopic.textContent = profile.topic;
   sidebarLevel.textContent = profile.level === 'unknown' ? 'Assessing…' : capitalize(profile.level);
 }
@@ -974,10 +968,7 @@ document.getElementById('btn-new-session').addEventListener('click', () => {
   userInput.value = '';
   autoResize();
 
-  screenLearning.classList.remove('active');
-  screenLearning.hidden = true;
-  screenSetup.classList.add('active');
-  screenSetup.hidden = false;
+  showScreen('setup');
 });
 
 // ── Init ───────────────────────────────────────────────────────
