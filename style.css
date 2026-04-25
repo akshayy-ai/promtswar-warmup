@@ -106,7 +106,6 @@ body {
   gap: .4rem;
   flex-wrap: wrap;
 }
-.session-banner[hidden] { display: none; }
 
 .btn-link {
   background: none;

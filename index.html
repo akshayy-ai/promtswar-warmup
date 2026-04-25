@@ -58,7 +58,7 @@
       <form id="setup-form" novalidate>
         <div class="field-group">
           <label for="api-key">Gemini API Key <span class="required" aria-label="required">*</span></label>
-          <input type="password" id="api-key" placeholder="AIza…" autocomplete="off" required aria-describedby="api-key-hint" />
+          <input type="password" id="api-key" placeholder="AIza…" autocomplete="off" required aria-describedby="api-key-hint" maxlength="50" />
           <span id="api-key-hint" class="field-hint">Get a free key at <strong>aistudio.google.com/apikey</strong> — never stored, session only.</span>
         </div>
 
@@ -91,7 +91,7 @@
   </div>
 
   <!-- Learning Screen -->
-  <div id="screen-learning" class="screen" role="main" aria-label="Learning session" hidden>
+  <div id="screen-learning" class="screen" role="region" aria-label="Learning session" hidden>
     <div class="learning-layout">
 
       <!-- Sidebar -->

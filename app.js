@@ -441,8 +441,8 @@ function createMessageActions(plainText) {
     copyBtn.innerHTML = '📋 Copy';
     copyBtn.addEventListener('click', async () => {
       await navigator.clipboard.writeText(plainText);
-      copyBtn.innerHTML = '✓ Copied';
-      setTimeout(() => { copyBtn.innerHTML = '📋 Copy'; }, 1500);
+      copyBtn.textContent = '✓ Copied';
+      setTimeout(() => { copyBtn.textContent = '📋 Copy'; }, 1500);
     });
     actions.appendChild(copyBtn);
   }
@@ -577,20 +577,21 @@ function setInputState(enabled) {
 
 // ── Markdown renderer ──────────────────────────────────────────
 function parseMarkdown(text) {
+  const e = escapeHtml;
   return text
     .replace(/```(\w+)?\n([\s\S]*?)```/g, (_, _lang, code) =>
-      `<pre><code>${escapeHtml(code.trim())}</code></pre>`)
-    .replace(/`([^`]+)`/g, (_, c) => `<code>${escapeHtml(c)}</code>`)
-    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
-    .replace(/^## (.+)$/gm,  '<h2>$1</h2>')
-    .replace(/^# (.+)$/gm,   '<h1>$1</h1>')
-    .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
-    .replace(/\*\*(.+?)\*\*/g,     '<strong>$1</strong>')
-    .replace(/\*(.+?)\*/g,         '<em>$1</em>')
-    .replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
-    .replace(/^\s*[-*] (.+)$/gm, '<li>$1</li>')
-    .replace(/(<li>[\s\S]*?<\/li>)/g, '<ul>$1</ul>')
-    .replace(/^\d+\. (.+)$/gm, '<li>$1</li>')
+      `<pre><code>${e(code.trim())}</code></pre>`)
+    .replace(/`([^`]+)`/g,          (_, c) => `<code>${e(c)}</code>`)
+    .replace(/^### (.+)$/gm,        (_, t) => `<h3>${e(t)}</h3>`)
+    .replace(/^## (.+)$/gm,         (_, t) => `<h2>${e(t)}</h2>`)
+    .replace(/^# (.+)$/gm,          (_, t) => `<h1>${e(t)}</h1>`)
+    .replace(/\*\*\*(.+?)\*\*\*/g,  (_, t) => `<strong><em>${e(t)}</em></strong>`)
+    .replace(/\*\*(.+?)\*\*/g,      (_, t) => `<strong>${e(t)}</strong>`)
+    .replace(/\*(.+?)\*/g,          (_, t) => `<em>${e(t)}</em>`)
+    .replace(/^> (.+)$/gm,          (_, t) => `<blockquote>${e(t)}</blockquote>`)
+    .replace(/^\s*[-*] (.+)$/gm,    (_, t) => `<li>${e(t)}</li>`)
+    .replace(/(<li>[^\n]*<\/li>\n?)+/g, m => `<ul>${m.trim()}</ul>`)
+    .replace(/^\d+\. (.+)$/gm,      (_, t) => `<li>${e(t)}</li>`)
     .replace(/\n{2,}/g, '</p><p>')
     .replace(/^(?!<[hup\d]|<block|<pre)(.+)$/gm, '<p>$1</p>')
     .replace(/([^>])\n([^<])/g, '$1<br>$2')
