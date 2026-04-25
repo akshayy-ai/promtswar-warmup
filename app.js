@@ -595,8 +595,9 @@ function hideTyping() { document.getElementById('typing-msg')?.remove(); }
 function scrollToBottom() { chatMessages.scrollTop = chatMessages.scrollHeight; }
 
 // ── Send message with streaming ────────────────────────────────
-/** Sends a message to Gemini, streams the response token-by-token, and updates the sidebar. */
-async function sendMessage(text) {
+/** Sends a message to Gemini, streams the response token-by-token, and updates the sidebar.
+ *  Pass silent=true on auto-retry so the user bubble isn't duplicated. */
+async function sendMessage(text, { silent = false } = {}) {
   if (isLoading || !text.trim()) return;
   isLoading = true;
   setInputState(false);
@@ -605,7 +606,7 @@ async function sendMessage(text) {
     ? `Please start our learning session. My topic is "${sanitize(profile.topic)}". Begin with your opening diagnostic question.`
     : sanitize(text);
 
-  if (text !== '__init__') {
+  if (!silent && text !== '__init__') {
     appendMessage('user', text);
     trackEvent('message_sent', { topic: profile.topic, turn: profile.turnCount });
   }
@@ -660,13 +661,25 @@ async function sendMessage(text) {
 
   } catch (err) {
     hideTyping();
-    showToast(`Error: ${err.message}`);
     if (history.length && history[history.length - 1].role === 'user') history.pop();
-  } finally {
-    isLoading = false;
-    setInputState(true);
-    userInput.focus();
+
+    const retryMatch = err.message.match(/retry in (\d+(?:\.\d+)?)/i);
+    if (retryMatch) {
+      const waitSec = Math.ceil(parseFloat(retryMatch[1]));
+      trackEvent('rate_limit_hit', { wait_sec: waitSec, topic: profile.topic });
+      showCountdown('⏳ Rate limit hit.', waitSec, () => {
+        isLoading = false;
+        sendMessage(text, { silent: true });
+      });
+      return;
+    }
+
+    showToast(`Error: ${err.message}`);
   }
+
+  isLoading = false;
+  setInputState(true);
+  userInput.focus();
 }
 
 function setInputState(enabled) {
@@ -767,15 +780,35 @@ function checkMilestone(prev, next) {
 }
 
 // ── Toast ──────────────────────────────────────────────────────
-function showToast(msg, duration = 4500) {
+function showToast(msg, duration = 4500, variant = '') {
   document.querySelector('.toast')?.remove();
   const t = document.createElement('div');
-  t.className = 'toast';
+  t.className = variant ? `toast toast-${variant}` : 'toast';
   t.setAttribute('role', 'alert');
   t.setAttribute('aria-live', 'assertive');
   t.textContent = msg;
   document.body.appendChild(t);
   setTimeout(() => t.remove(), duration);
+}
+
+/** Shows a live countdown toast, then calls onDone when it reaches zero. */
+function showCountdown(prefix, seconds, onDone) {
+  document.querySelector('.toast')?.remove();
+  const t = document.createElement('div');
+  t.className = 'toast toast-warning';
+  t.setAttribute('role', 'status');
+  t.setAttribute('aria-live', 'polite');
+  document.body.appendChild(t);
+
+  let remaining = Math.ceil(seconds);
+  const tick = () => { t.textContent = `${prefix} Retrying in ${remaining}s…`; };
+  tick();
+
+  const id = setInterval(() => {
+    remaining--;
+    if (remaining <= 0) { clearInterval(id); t.remove(); onDone(); }
+    else tick();
+  }, 1000);
 }
 
 // ── Screen transition ──────────────────────────────────────────
