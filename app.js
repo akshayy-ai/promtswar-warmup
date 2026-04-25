@@ -7,6 +7,7 @@ function gtag() { window.dataLayer.push(arguments); }
 gtag('js', new Date());
 gtag('config', GA_ID, { anonymize_ip: true });
 
+/** Fires a GA4 event without throwing if gtag is unavailable. */
 function trackEvent(name, params) {
   try { gtag('event', name, params || {}); } catch (_) {}
 }
@@ -30,6 +31,10 @@ let currentUser = null;
 const GEMINI_MODEL  = 'gemini-2.5-flash';
 const GEMINI_URL    = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?alt=sse`;
 
+// ── Google Cloud Translation API ───────────────────────────────
+const TRANSLATE_URL = 'https://translation.googleapis.com/language/translate/v2';
+
+/** Builds the fetch URL and headers for the Gemini streaming API. */
 function buildFetchOptions() {
   return {
     url:     `${GEMINI_URL}&key=${encodeURIComponent(apiKey.trim())}`,
@@ -49,10 +54,11 @@ const profile = {
   turnCount:     0,
 };
 
-let history   = [];
-let apiKey    = '';
-let isLoading = false;
-let ttsActive = false;
+let history      = [];
+let apiKey       = '';
+let translateKey = '';
+let isLoading    = false;
+let ttsActive    = false;
 
 // ── Rate limiting ──────────────────────────────────────────────
 let lastRequestTime = 0;
@@ -73,19 +79,33 @@ const sidebarTopic   = document.getElementById('sidebar-topic');
 const conceptsList   = document.getElementById('concepts-list');
 const sessionBanner  = document.getElementById('session-banner');
 
-// ── Session persistence (localStorage) ────────────────────────
+// ── Input validation ───────────────────────────────────────────
+/** Returns true if str looks like a valid Google API key (starts with AIza, 35–50 chars). */
+function validateApiKey(str) {
+  return typeof str === 'string' && str.startsWith('AIza') && str.length >= 35 && str.length <= 50;
+}
+
+/** Returns a sanitized, length-limited string safe for use in prompts. */
+function sanitize(str) {
+  if (!str) return '';
+  return String(str).slice(0, 500).replace(/[<>]/g, '');
+}
+
+// ── Session persistence ────────────────────────────────────────
 const SESSION_KEY = 'lc_session_v2';
 
+/** Saves current profile and history to localStorage and Firestore. */
 function saveSession() {
   try {
     localStorage.setItem(SESSION_KEY, JSON.stringify({
-      profile:   { ...profile },
-      history:   history.slice(-30),
+      profile: { ...profile },
+      history: history.slice(-30),
     }));
     saveSessionToFirestore();
   } catch (_) {}
 }
 
+/** Loads a saved session from localStorage; returns data object or false. */
 function loadSession() {
   try {
     const raw = localStorage.getItem(SESSION_KEY);
@@ -96,6 +116,7 @@ function loadSession() {
   } catch (_) { return false; }
 }
 
+/** Removes the saved session from localStorage and Firestore. */
 function clearSession() {
   localStorage.removeItem(SESSION_KEY);
   clearSessionFromFirestore();
@@ -115,6 +136,7 @@ function restoreSession(data) {
 }
 
 // ── Firebase Auth & Firestore ──────────────────────────────────
+/** Initialises Firebase, Auth, and Firestore; reveals the auth section when ready. */
 function initFirebase() {
   try {
     firebase.initializeApp(FB_CONFIG);
@@ -122,15 +144,10 @@ function initFirebase() {
     db   = firebase.firestore();
     document.getElementById('auth-section').hidden = false;
 
-    // Pick up the result after Google redirect sign-in
     auth.getRedirectResult().then(result => {
-      if (result && result.user) {
-        trackEvent('sign_in', { method: 'google' });
-      }
+      if (result && result.user) trackEvent('sign_in', { method: 'google' });
     }).catch(e => {
-      if (e.code !== 'auth/no-auth-event') {
-        showToast('Sign-in failed: ' + e.message);
-      }
+      if (e.code !== 'auth/no-auth-event') showToast('Sign-in failed: ' + e.message);
     });
 
     auth.onAuthStateChanged(user => {
@@ -145,8 +162,7 @@ function initFirebase() {
 async function signInWithGoogle() {
   if (!auth) return;
   try {
-    const provider = new firebase.auth.GoogleAuthProvider();
-    await auth.signInWithRedirect(provider);
+    await auth.signInWithRedirect(new firebase.auth.GoogleAuthProvider());
   } catch (e) {
     showToast('Sign-in failed. Please try again.');
   }
@@ -179,6 +195,7 @@ function updateAuthUI(user) {
   }
 }
 
+/** Persists the current session to Firestore for the signed-in user. */
 async function saveSessionToFirestore() {
   if (!db || !currentUser) return;
   try {
@@ -192,6 +209,7 @@ async function saveSessionToFirestore() {
   }
 }
 
+/** Retrieves the current user's session from Firestore; returns data or null. */
 async function getSessionFromFirestore() {
   if (!db || !currentUser) return null;
   try {
@@ -205,12 +223,29 @@ async function getSessionFromFirestore() {
 
 async function clearSessionFromFirestore() {
   if (!db || !currentUser) return;
+  try { await db.collection('sessions').doc(currentUser.uid).delete(); } catch (_) {}
+}
+
+// ── Google Cloud Translation API ───────────────────────────────
+/** Translates plainText to targetLang via Cloud Translation API; returns translated string or null. */
+async function translateText(plainText, targetLang) {
+  if (!translateKey) return null;
   try {
-    await db.collection('sessions').doc(currentUser.uid).delete();
-  } catch (_) {}
+    const res = await fetch(`${TRANSLATE_URL}?key=${encodeURIComponent(translateKey)}`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ q: plainText, target: targetLang, format: 'text' }),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data?.data?.translations?.[0]?.translatedText || null;
+  } catch (_) {
+    return null;
+  }
 }
 
 // ── System prompt ──────────────────────────────────────────────
+/** Builds the adaptive system instruction embedding the current learner profile. */
 function buildSystemPrompt() {
   return `You are an adaptive Learning Companion — a patient, encouraging tutor who personalises every response to the learner's current level, background, and stated goal.
 
@@ -246,13 +281,8 @@ concepts_struggling: <comma-separated list or none>
 -->`;
 }
 
-// ── Input sanitization ─────────────────────────────────────────
-function sanitize(str) {
-  if (!str) return '';
-  return String(str).slice(0, 500).replace(/[<>]/g, '');
-}
-
 // ── Gemini streaming API ───────────────────────────────────────
+/** Sends userMessage to Gemini, calling onChunk per token; returns the full response text. */
 async function callGeminiStream(userMessage, onChunk) {
   const now = Date.now();
   if (now - lastRequestTime < MIN_REQUEST_INTERVAL_MS) {
@@ -316,6 +346,7 @@ async function callGeminiStream(userMessage, onChunk) {
 }
 
 // ── Metadata parsing ───────────────────────────────────────────
+/** Parses the <!--META--> block from a Gemini response; returns fields or null. */
 function parseMeta(text) {
   const match = text.match(/<!--META\s*([\s\S]*?)-->/);
   if (!match) return null;
@@ -332,10 +363,12 @@ function parseMeta(text) {
   };
 }
 
+/** Removes the <!--META--> block from a response string and trims whitespace. */
 function stripMeta(text) {
   return text.replace(/<!--META[\s\S]*?-->/g, '').trim();
 }
 
+/** Applies parsed metadata to the learner profile and updates sidebar UI. */
 function applyMeta(meta) {
   if (!meta) return;
   if (meta.level && meta.level !== 'unknown') {
@@ -374,6 +407,7 @@ function renderConcepts() {
 // ── Text-to-Speech (Web Speech API) ───────────────────────────
 let currentUtterance = null;
 
+/** Reads text aloud via Web Speech API; toggles off if already speaking. */
 function speak(text, btn) {
   if (!window.speechSynthesis) return;
 
@@ -403,7 +437,6 @@ function speak(text, btn) {
   ttsActive        = true;
 
   if (btn) btn.classList.add('active');
-
   utterance.onend = () => {
     currentUtterance = null;
     ttsActive = false;
@@ -415,11 +448,13 @@ function speak(text, btn) {
 }
 
 // ── YouTube search ─────────────────────────────────────────────
+/** Returns a YouTube search URL for "learn <concept>". */
 function youtubeSearchUrl(concept) {
   return `https://www.youtube.com/results?search_query=${encodeURIComponent(`learn ${concept}`)}`;
 }
 
-// ── Message action buttons (TTS / Copy / YouTube) ──────────────
+// ── Message action buttons ─────────────────────────────────────
+/** Creates TTS, Copy, YouTube, and (when translateKey is set) Translate buttons for a message. */
 function createMessageActions(plainText) {
   const actions = document.createElement('div');
   actions.className = 'message-actions';
@@ -457,10 +492,39 @@ function createMessageActions(plainText) {
   });
   actions.appendChild(ytBtn);
 
+  if (translateKey) {
+    const tBtn = document.createElement('button');
+    tBtn.className = 'msg-action-btn';
+    tBtn.setAttribute('aria-label', 'Translate this message');
+    tBtn.innerHTML = '🌐 Translate';
+    tBtn.addEventListener('click', async () => {
+      tBtn.textContent = 'Translating…';
+      tBtn.disabled = true;
+      const browserLang = navigator.language.split('-')[0];
+      const targetLang  = browserLang === 'en' ? 'es' : (browserLang || 'es');
+      const translated  = await translateText(plainText, targetLang);
+      if (translated) {
+        const box = document.createElement('div');
+        box.className = 'translation-box';
+        box.setAttribute('aria-label', 'Translated message');
+        box.textContent = translated;
+        tBtn.closest('.message-content').insertBefore(box, actions);
+        tBtn.remove();
+        trackEvent('translate_message', { target_lang: targetLang, topic: profile.topic });
+      } else {
+        tBtn.textContent = '🌐 Translate';
+        tBtn.disabled = false;
+        showToast('Translation unavailable. Check your Cloud Translation API key.');
+      }
+    });
+    actions.appendChild(tBtn);
+  }
+
   return actions;
 }
 
 // ── Render a chat message ──────────────────────────────────────
+/** Renders a chat message bubble with optional action buttons appended. */
 function appendMessage(role, rawText, withActions = true) {
   const clean = stripMeta(rawText);
   const div   = document.createElement('div');
@@ -511,6 +575,7 @@ function hideTyping() { document.getElementById('typing-msg')?.remove(); }
 function scrollToBottom() { chatMessages.scrollTop = chatMessages.scrollHeight; }
 
 // ── Send message with streaming ────────────────────────────────
+/** Sends a message to Gemini, streams the response token-by-token, and updates the sidebar. */
 async function sendMessage(text) {
   if (isLoading || !text.trim()) return;
   isLoading = true;
@@ -529,7 +594,7 @@ async function sendMessage(text) {
 
   try {
     hideTyping();
-    const streamDiv    = document.createElement('div');
+    const streamDiv = document.createElement('div');
     streamDiv.className = 'message assistant';
     streamDiv.setAttribute('aria-label', 'Learning companion message');
     streamDiv.innerHTML = `
@@ -553,11 +618,8 @@ async function sendMessage(text) {
     bubble.id = '';
     bubble.innerHTML = parseMarkdown(stripMeta(fullText));
 
-    const contentEl = streamDiv.querySelector('.message-content');
-    contentEl.appendChild(createMessageActions(stripMeta(fullText)));
-
-    const meta = parseMeta(fullText);
-    applyMeta(meta);
+    streamDiv.querySelector('.message-content').appendChild(createMessageActions(stripMeta(fullText)));
+    applyMeta(parseMeta(fullText));
 
   } catch (err) {
     hideTyping();
@@ -576,6 +638,7 @@ function setInputState(enabled) {
 }
 
 // ── Markdown renderer ──────────────────────────────────────────
+/** Converts a markdown string to sanitised HTML; all captured groups are HTML-escaped. */
 function parseMarkdown(text) {
   const e = escapeHtml;
   return text
@@ -590,7 +653,7 @@ function parseMarkdown(text) {
     .replace(/\*(.+?)\*/g,          (_, t) => `<em>${e(t)}</em>`)
     .replace(/^> (.+)$/gm,          (_, t) => `<blockquote>${e(t)}</blockquote>`)
     .replace(/^\s*[-*] (.+)$/gm,    (_, t) => `<li>${e(t)}</li>`)
-    .replace(/(<li>[^\n]*<\/li>\n?)+/g, m => `<ul>${m.trim()}</ul>`)
+    .replace(/(<li>[^\n]*<\/li>\n?)+/g, m  => `<ul>${m.trim()}</ul>`)
     .replace(/^\d+\. (.+)$/gm,      (_, t) => `<li>${e(t)}</li>`)
     .replace(/\n{2,}/g, '</p><p>')
     .replace(/^(?!<[hup\d]|<block|<pre)(.+)$/gm, '<p>$1</p>')
@@ -598,6 +661,7 @@ function parseMarkdown(text) {
     .replace(/<p>\s*<\/p>/g, '');
 }
 
+/** Escapes HTML special characters to prevent XSS injection. */
 function escapeHtml(str) {
   return String(str)
     .replace(/&/g, '&amp;')
@@ -627,8 +691,8 @@ function startLearningScreen() {
   screenSetup.hidden = true;
   screenLearning.classList.add('active');
   screenLearning.hidden = false;
-  sidebarTopic.textContent  = profile.topic;
-  sidebarLevel.textContent  = profile.level === 'unknown' ? 'Assessing…' : capitalize(profile.level);
+  sidebarTopic.textContent = profile.topic;
+  sidebarLevel.textContent = profile.level === 'unknown' ? 'Assessing…' : capitalize(profile.level);
 }
 
 // ── Setup form ─────────────────────────────────────────────────
@@ -636,10 +700,12 @@ setupForm.addEventListener('submit', (e) => {
   e.preventDefault();
   const key   = document.getElementById('api-key').value.trim();
   const topic = document.getElementById('topic').value.trim();
-  if (!key)   { showToast('Please enter your Gemini API key.'); return; }
-  if (!topic) { showToast('Please enter a topic to learn.'); return; }
+
+  if (!validateApiKey(key)) { showToast('Invalid API key — must start with AIza and be 35–50 characters.'); return; }
+  if (!topic)               { showToast('Please enter a topic to learn.'); return; }
 
   apiKey             = key;
+  translateKey       = document.getElementById('translate-key').value.trim();
   profile.topic      = sanitize(topic);
   profile.background = sanitize(document.getElementById('background').value.trim());
   profile.goal       = sanitize(document.getElementById('goal').value.trim());
@@ -649,6 +715,7 @@ setupForm.addEventListener('submit', (e) => {
     has_background: !!profile.background,
     has_goal:       !!profile.goal,
     signed_in:      !!currentUser,
+    has_translate:  !!translateKey,
   });
 
   clearSession();
@@ -662,8 +729,9 @@ setupForm.addEventListener('submit', (e) => {
 // ── Restore session button ─────────────────────────────────────
 document.getElementById('btn-restore')?.addEventListener('click', async () => {
   const key = document.getElementById('api-key').value.trim();
-  if (!key) { showToast('Please enter your Gemini API key first.'); return; }
-  apiKey = key;
+  if (!validateApiKey(key)) { showToast('Please enter a valid Gemini API key first.'); return; }
+  apiKey       = key;
+  translateKey = document.getElementById('translate-key').value.trim();
 
   const cloudData = await getSessionFromFirestore();
   if (cloudData) {
@@ -689,7 +757,7 @@ chatForm.addEventListener('submit', (e) => {
   sendMessage(text);
 });
 
-// ── Textarea ───────────────────────────────────────────────────
+// ── Textarea auto-resize ───────────────────────────────────────
 userInput.addEventListener('input', () => {
   autoResize();
   sendBtn.disabled = !userInput.value.trim() || isLoading;
@@ -734,8 +802,9 @@ document.getElementById('btn-new-session').addEventListener('click', () => {
   if (currentUtterance) { speechSynthesis.cancel(); currentUtterance = null; }
   trackEvent('new_session');
   clearSession();
-  history    = [];
-  Object.assign(profile, { level:'unknown', understanding:0, concepts:[], struggling:[], turnCount:0 });
+  history      = [];
+  translateKey = '';
+  Object.assign(profile, { level: 'unknown', understanding: 0, concepts: [], struggling: [], turnCount: 0 });
 
   chatMessages.innerHTML = '';
   conceptsList.innerHTML = '<li class="concept-placeholder">Nothing yet — let\'s start!</li>';
@@ -754,9 +823,7 @@ document.getElementById('btn-new-session').addEventListener('click', () => {
 // ── Init ───────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
   const data = loadSession();
-  if (data?.profile?.topic) {
-    sessionBanner.hidden = false;
-  }
+  if (data?.profile?.topic) sessionBanner.hidden = false;
 
   initFirebase();
 

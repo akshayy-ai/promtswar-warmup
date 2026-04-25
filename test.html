@@ -23,7 +23,7 @@
 </head>
 <body>
   <h1>Learning Companion — Test Suite</h1>
-  <p class="version">57 tests · 10 suites</p>
+  <p class="version">62 tests · 11 suites</p>
   <div id="output"></div>
   <div class="summary" id="summary"></div>
 
@@ -322,6 +322,29 @@ describe('Session persistence', () => {
 
   // cleanup
   clearSession();
+});
+
+/** Returns true if str looks like a valid Google API key (starts with AIza, 35–50 chars). */
+function validateApiKey(str) {
+  return typeof str === 'string' && str.startsWith('AIza') && str.length >= 35 && str.length <= 50;
+}
+
+describe('validateApiKey — input validation', () => {
+  it('accepts a valid 39-char AIza key', () => {
+    expect(validateApiKey('AIza' + 'a'.repeat(35))).toBeTruthy();
+  });
+  it('rejects a key without AIza prefix', () => {
+    expect(validateApiKey('Bxyz' + 'a'.repeat(35))).toBeFalsy();
+  });
+  it('rejects a key shorter than 35 chars', () => {
+    expect(validateApiKey('AIza' + 'a'.repeat(10))).toBeFalsy();
+  });
+  it('rejects a key longer than 50 chars', () => {
+    expect(validateApiKey('AIza' + 'a'.repeat(47))).toBeFalsy();
+  });
+  it('rejects non-string values', () => {
+    expect(validateApiKey(null)).toBeFalsy();
+  });
 });
 
 // ── trackEvent ─────────────────────────────────────────────────

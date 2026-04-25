@@ -618,6 +618,26 @@ kbd {
   margin-left: auto;
 }
 
+/* ── Translation box ──────────────────────────────────────── */
+.translation-box {
+  margin-top: .625rem;
+  padding: .625rem .875rem;
+  background: var(--brand-light);
+  border: 1px solid #A5B4FC;
+  border-radius: var(--radius-sm);
+  font-size: .875rem;
+  line-height: 1.6;
+  color: var(--text-1);
+}
+.translation-box .translation-lang {
+  font-size: .72rem;
+  font-weight: 600;
+  color: var(--brand);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  margin-bottom: .3rem;
+}
+
 /* ── Responsive ───────────────────────────────────────────── */
 @media (max-width: 640px) {
   .learning-layout { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
