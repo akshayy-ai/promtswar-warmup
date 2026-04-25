@@ -28,8 +28,9 @@ let auth        = null;
 let currentUser = null;
 
 // ── Gemini API ─────────────────────────────────────────────────
-const GEMINI_MODEL  = 'gemini-2.5-flash';
-const GEMINI_URL    = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?alt=sse`;
+const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
+let   geminiModel = 'gemini-1.5-flash';
+function geminiUrl() { return `${GEMINI_BASE}/${geminiModel}:streamGenerateContent?alt=sse`; }
 
 // ── Google Cloud Translation API ───────────────────────────────
 const TRANSLATE_URL = 'https://translation.googleapis.com/language/translate/v2';
@@ -37,7 +38,7 @@ const TRANSLATE_URL = 'https://translation.googleapis.com/language/translate/v2'
 /** Builds the fetch URL and headers for the Gemini streaming API. */
 function buildFetchOptions() {
   return {
-    url:     `${GEMINI_URL}&key=${encodeURIComponent(apiKey.trim())}`,
+    url:     `${geminiUrl()}&key=${encodeURIComponent(apiKey.trim())}`,
     headers: { 'Content-Type': 'application/json' },
   };
 }
@@ -832,6 +833,7 @@ setupForm.addEventListener('submit', (e) => {
 
   apiKey             = key;
   translateKey       = document.getElementById('translate-key').value.trim();
+  geminiModel        = document.getElementById('model-select').value;
   profile.topic      = sanitize(topic);
   profile.background = sanitize(document.getElementById('background').value.trim());
   profile.goal       = sanitize(document.getElementById('goal').value.trim());

@@ -9,7 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <!-- Google Analytics 4 -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-GL9PBMHZ4G"></script>
-  <link rel="stylesheet" href="style.css?v=15" />
+  <link rel="stylesheet" href="style.css?v=16" />
 </head>
 <body>
   <a href="#chat-messages" class="skip-nav">Skip to conversation</a>
@@ -60,6 +60,16 @@
           <label for="api-key">Gemini API Key <span class="required" aria-label="required">*</span></label>
           <input type="password" id="api-key" placeholder="AIza…" autocomplete="off" required aria-describedby="api-key-hint" maxlength="50" />
           <span id="api-key-hint" class="field-hint">Get a free key at <strong>aistudio.google.com/apikey</strong> — never stored, session only.</span>
+        </div>
+
+        <div class="field-group">
+          <label for="model-select">Gemini Model</label>
+          <select id="model-select" aria-describedby="model-hint">
+            <option value="gemini-2.5-flash">gemini-2.5-flash — latest, smartest (20 RPM free)</option>
+            <option value="gemini-2.0-flash">gemini-2.0-flash — fast, reliable (15 RPM free)</option>
+            <option value="gemini-1.5-flash" selected>gemini-1.5-flash — most generous free tier (15 RPM, 1500 RPD)</option>
+          </select>
+          <span id="model-hint" class="field-hint">Switch to a different model if you hit rate limits.</span>
         </div>
 
         <div class="field-group">
@@ -183,6 +193,6 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-  <script src="app.js?v=15"></script>
+  <script src="app.js?v=16"></script>
 </body>
 </html>
