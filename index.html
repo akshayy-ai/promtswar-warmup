@@ -9,7 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <!-- Google Analytics 4 -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-GL9PBMHZ4G"></script>
-  <link rel="stylesheet" href="style.css?v=20" />
+  <link rel="stylesheet" href="style.css?v=21" />
 </head>
 <body>
   <a href="#chat-messages" class="skip-nav">Skip to conversation</a>
@@ -17,10 +17,12 @@
   <!-- Login Screen -->
   <div id="screen-login" class="screen active" role="main" aria-label="Sign in to Learning Companion">
     <div class="login-container">
-      <div class="login-card">
-        <div class="logo" aria-hidden="true">
-          <svg width="44" height="44" viewBox="0 0 40 40" fill="none">
-            <circle cx="20" cy="20" r="20" fill="#4F46E5"/>
+
+      <!-- Left: Hero panel -->
+      <div class="login-hero" aria-hidden="true">
+        <div class="login-hero-brand">
+          <svg width="28" height="28" viewBox="0 0 40 40" fill="none">
+            <circle cx="20" cy="20" r="20" fill="rgba(255,255,255,.18)"/>
             <path d="M12 20C12 15.6 15.6 12 20 12C24.4 12 28 15.6 28 20" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
             <circle cx="20" cy="26" r="3" fill="white"/>
             <path d="M20 23V21" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
@@ -28,15 +30,41 @@
           <span>Learning Companion</span>
         </div>
 
-        <h1 class="login-headline">Learn anything, at your pace</h1>
-        <p class="login-sub">An AI tutor that adapts to you — step by step, concept by concept.</p>
+        <div class="login-hero-body">
+          <h1 class="login-headline">Your AI tutor<br/>that actually<br/><em>gets</em> you.</h1>
+          <p class="login-sub">Adaptive lessons, interactive quizzes, and a teaching style that matches how <strong>you</strong> think — not a generic chatbot.</p>
 
-        <ul class="login-features" aria-label="Features">
-          <li><span aria-hidden="true">🎯</span> Adaptive difficulty that matches your level</li>
-          <li><span aria-hidden="true">🧪</span> Interactive quizzes with instant feedback</li>
-          <li><span aria-hidden="true">☁️</span> Sessions saved to your Google account</li>
-          <li><span aria-hidden="true">🌐</span> Translate lessons to your language</li>
-        </ul>
+          <ul class="login-features" aria-label="Features">
+            <li><span>🎯</span> Adapts to your level in real time</li>
+            <li><span>🧪</span> Interactive quizzes with instant feedback</li>
+            <li><span>☁️</span> Sessions saved to your Google account</li>
+            <li><span>🌐</span> Translate any lesson to your language</li>
+          </ul>
+        </div>
+
+        <!-- Decorative floating topic pills -->
+        <div class="floating-pills">
+          <span class="pill">Neural Networks</span>
+          <span class="pill">Quantum Computing</span>
+          <span class="pill">Roman History</span>
+          <span class="pill">Machine Learning</span>
+          <span class="pill">Photosynthesis</span>
+          <span class="pill">Black Holes</span>
+        </div>
+      </div>
+
+      <!-- Right: Sign-in card -->
+      <div class="login-card">
+        <div class="login-card-icon" aria-hidden="true">
+          <svg width="36" height="36" viewBox="0 0 40 40" fill="none">
+            <path d="M12 20C12 15.6 15.6 12 20 12C24.4 12 28 15.6 28 20" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+            <circle cx="20" cy="26" r="3" fill="white"/>
+            <path d="M20 23V21" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+
+        <h2 class="login-card-title">Get started free</h2>
+        <p class="login-card-sub">Sign in to begin your learning journey</p>
 
         <div id="login-firebase-status" aria-live="polite">
           <div class="login-loading" id="login-loading" aria-label="Loading…">
@@ -54,8 +82,15 @@
           </button>
         </div>
 
-        <p class="login-note">Your API keys are never stored — session only.</p>
+        <div class="login-trust" aria-hidden="true">
+          <span>🔒 Private</span>
+          <span>⚡ Free</span>
+          <span>🌍 Any topic</span>
+        </div>
+
+        <p class="login-note">API keys are never stored — session only.</p>
       </div>
+
     </div>
   </div>
 
@@ -237,6 +272,6 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-  <script src="app.js?v=20"></script>
+  <script src="app.js?v=21"></script>
 </body>
 </html>
