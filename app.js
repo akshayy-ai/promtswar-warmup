@@ -268,9 +268,17 @@ ADAPTIVE BEHAVIOUR RULES:
 5. If the learner excels → introduce next concept, add nuance, explore edge cases.
 6. Always connect new ideas to what the learner already knows.
 7. Be warm, encouraging, and never condescending.
+8. QUICK ACTIONS — always respond immediately to these, even if diagnostics are incomplete:
+   - "simpler" → re-explain the last concept more simply with a fresh analogy
+   - "deeper" → go deeper on the last concept with more technical detail
+   - "example" → give a concrete real-world example of the last concept
+   - "quiz" → give a multiple-choice quiz question using QUIZ FORMAT below
+   - "summary" → summarise all concepts covered so far
+   - "next" → introduce the next logical concept
 
 RESPONSE FORMAT:
-- Use markdown: ## headers, **bold**, bullet lists, \`inline code\`, code blocks.
+- Use ONLY markdown syntax. NEVER output raw HTML tags like <strong>, <em>, <br>, <p>.
+- Use **bold**, *italic*, \`code\`, ## headers, - bullet lists, > blockquotes, \`\`\`code blocks\`\`\`.
 - Teach ONE concept at a time. End every teaching response with ONE question.
 - After every 3-4 turns briefly recap: "So far you've understood…".
 
@@ -725,7 +733,8 @@ function escapeHtml(str) {
 function capitalize(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
 
 // ── MCQ quiz parser ────────────────────────────────────────────
-/** Parses A/B/C/D multiple-choice options from text; returns {question, options} or null. */
+/** Parses A/B/C/D multiple-choice options from text; returns {question, options} or null.
+ *  Requires options to appear in order (A→B→C) with at least 3 to avoid false positives. */
 function parseMCQ(text) {
   const lines  = text.split('\n').map(l => l.trim()).filter(Boolean);
   const optRe  = /^([A-D])[).]\s*(.+)/;
@@ -735,11 +744,20 @@ function parseMCQ(text) {
 
   for (const line of lines) {
     const m = line.match(optRe);
-    if (m) { seenOpts = true; opts.push({ label: m[1], text: m[2] }); }
-    else if (!seenOpts) qLines.push(line);
+    if (m) {
+      const expected = String.fromCharCode(65 + opts.length); // A, B, C, D in order
+      if (m[1] !== expected) { if (!seenOpts) qLines.push(line); continue; }
+      seenOpts = true;
+      opts.push({ label: m[1], text: m[2] });
+    } else if (!seenOpts) {
+      qLines.push(line);
+    }
   }
 
-  return opts.length >= 2 ? { question: qLines.join('\n'), options: opts } : null;
+  // Need at least 3 ordered options and a non-empty question to be a real MCQ
+  return opts.length >= 3 && qLines.length > 0
+    ? { question: qLines.join('\n'), options: opts }
+    : null;
 }
 
 /** Replaces bubble innerHTML with an interactive MCQ UI; clicking an option submits the answer. */
