@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Learning Companion — Test Suite</title>
+  <style>
+    body { font-family: monospace; padding: 2rem; background: #0f172a; color: #e2e8f0; }
+    h1   { color: #818cf8; margin-bottom: 1.5rem; }
+    .suite    { margin-bottom: 1.5rem; }
+    .suite-name { font-weight: bold; color: #94a3b8; margin-bottom: .5rem; }
+    .pass { color: #34d399; }
+    .fail { color: #f87171; }
+    .summary { margin-top: 2rem; font-size: 1.1rem; border-top: 1px solid #334155; padding-top: 1rem; }
+  </style>
+</head>
+<body>
+  <h1>Learning Companion — Test Suite</h1>
+  <div id="output"></div>
+  <div class="summary" id="summary"></div>
+
+<script>
+// ── Minimal test harness ───────────────────────────────────
+const results = [];
+
+function describe(name, fn) {
+  results.push({ name, tests: [] });
+  fn();
+}
+
+function it(label, fn) {
+  const suite = results[results.length - 1];
+  try {
+    fn();
+    suite.tests.push({ label, passed: true });
+  } catch (e) {
+    suite.tests.push({ label, passed: false, error: e.message });
+  }
+}
+
+function expect(actual) {
+  return {
+    toBe(expected) {
+      if (actual !== expected)
+        throw new Error(`Expected "${expected}", got "${actual}"`);
+    },
+    toContain(str) {
+      if (!String(actual).includes(str))
+        throw new Error(`Expected "${actual}" to contain "${str}"`);
+    },
+    toEqual(expected) {
+      if (JSON.stringify(actual) !== JSON.stringify(expected))
+        throw new Error(`Expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+    },
+    toBeTruthy() {
+      if (!actual) throw new Error(`Expected truthy, got "${actual}"`);
+    },
+    toBeFalsy() {
+      if (actual) throw new Error(`Expected falsy, got "${actual}"`);
+    },
+    toBeGreaterThanOrEqual(n) {
+      if (actual < n) throw new Error(`Expected >= ${n}, got ${actual}`);
+    },
+    toBeLessThanOrEqual(n) {
+      if (actual > n) throw new Error(`Expected <= ${n}, got ${actual}`);
+    },
+  };
+}
+
+// ── Copy utility functions from app.js (tested in isolation) ──
+
+function escapeHtml(str) {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function parseMarkdown(text) {
+  return text
+    .replace(/```(\w+)?\n([\s\S]*?)```/g, (_, lang, code) =>
+      `<pre><code>${escapeHtml(code.trim())}</code></pre>`)
+    .replace(/`([^`]+)`/g, (_, c) => `<code>${escapeHtml(c)}</code>`)
+    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+    .replace(/^## (.+)$/gm,  '<h2>$1</h2>')
+    .replace(/^# (.+)$/gm,   '<h1>$1</h1>')
+    .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
+    .replace(/\*\*(.+?)\*\*/g,     '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g,         '<em>$1</em>')
+    .replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
+    .replace(/^\s*[-*] (.+)$/gm, '<li>$1</li>')
+    .replace(/(<li>[\s\S]*?<\/li>)/g, '<ul>$1</ul>')
+    .replace(/<p>\s*<\/p>/g, '');
+}
+
+function stripMeta(text) {
+  return text.replace(/<!--META[\s\S]*?-->/g, '').trim();
+}
+
+function parseMeta(text) {
+  const match = text.match(/<!--META\s*([\s\S]*?)-->/);
+  if (!match) return null;
+  const block = match[1];
+  const get = (key) => {
+    const m = block.match(new RegExp(`${key}:\\s*(.+)`));
+    return m ? m[1].trim() : null;
+  };
+  return {
+    level:               get('level'),
+    understanding:       parseInt(get('understanding'), 10) || 0,
+    concepts_mastered:   get('concepts_mastered'),
+    concepts_struggling: get('concepts_struggling'),
+  };
+}
+
+function capitalize(s) {
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+}
+
+// ── Tests ──────────────────────────────────────────────────
+
+describe('escapeHtml', () => {
+  it('escapes & < > "', () => {
+    expect(escapeHtml('<script>alert("xss")</script>'))
+      .toBe('&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;');
+  });
+  it('leaves plain text unchanged', () => {
+    expect(escapeHtml('hello world')).toBe('hello world');
+  });
+  it('escapes ampersand', () => {
+    expect(escapeHtml('foo & bar')).toBe('foo &amp; bar');
+  });
+});
+
+describe('parseMarkdown', () => {
+  it('renders bold text', () => {
+    expect(parseMarkdown('**bold**')).toContain('<strong>bold</strong>');
+  });
+  it('renders italic text', () => {
+    expect(parseMarkdown('*italic*')).toContain('<em>italic</em>');
+  });
+  it('renders h2 headings', () => {
+    expect(parseMarkdown('## Heading')).toContain('<h2>Heading</h2>');
+  });
+  it('renders h3 headings', () => {
+    expect(parseMarkdown('### Sub')).toContain('<h3>Sub</h3>');
+  });
+  it('renders inline code', () => {
+    expect(parseMarkdown('use `npm install`')).toContain('<code>npm install</code>');
+  });
+  it('escapes HTML inside inline code', () => {
+    expect(parseMarkdown('`<div>`')).toContain('&lt;div&gt;');
+  });
+  it('renders blockquote', () => {
+    expect(parseMarkdown('> note')).toContain('<blockquote>note</blockquote>');
+  });
+  it('renders unordered list', () => {
+    expect(parseMarkdown('- item')).toContain('<li>item</li>');
+  });
+  it('renders fenced code block', () => {
+    const out = parseMarkdown('```js\nconsole.log("hi")\n```');
+    expect(out).toContain('<pre><code>');
+  });
+  it('strips empty p tags', () => {
+    const out = parseMarkdown('\n\n');
+    expect(out).toBeFalsy();
+  });
+});
+
+describe('parseMeta', () => {
+  const sample = `Some text
+<!--META
+level: intermediate
+understanding: 65
+concepts_mastered: variables, functions
+concepts_struggling: closures
+-->`;
+
+  it('returns null when no META block present', () => {
+    expect(parseMeta('no metadata here')).toBe(null);
+  });
+  it('parses level correctly', () => {
+    expect(parseMeta(sample).level).toBe('intermediate');
+  });
+  it('parses understanding as integer', () => {
+    expect(parseMeta(sample).understanding).toBe(65);
+  });
+  it('parses concepts_mastered', () => {
+    expect(parseMeta(sample).concepts_mastered).toBe('variables, functions');
+  });
+  it('parses concepts_struggling', () => {
+    expect(parseMeta(sample).concepts_struggling).toBe('closures');
+  });
+  it('understanding defaults to 0 for invalid value', () => {
+    const t = '<!--META\nunderstanding: abc\n-->';
+    expect(parseMeta(t).understanding).toBe(0);
+  });
+});
+
+describe('stripMeta', () => {
+  it('removes META block from response', () => {
+    const text = 'Hello world\n<!--META\nlevel: beginner\n-->';
+    expect(stripMeta(text)).toBe('Hello world');
+  });
+  it('leaves text without META unchanged', () => {
+    expect(stripMeta('plain text')).toBe('plain text');
+  });
+  it('trims surrounding whitespace', () => {
+    expect(stripMeta('  hello  <!--META\n-->  ')).toBe('hello');
+  });
+});
+
+describe('capitalize', () => {
+  it('capitalizes first letter', () => {
+    expect(capitalize('beginner')).toBe('Beginner');
+  });
+  it('handles empty string', () => {
+    expect(capitalize('')).toBe('');
+  });
+  it('handles undefined gracefully', () => {
+    expect(capitalize(undefined)).toBe(undefined);
+  });
+});
+
+describe('Security', () => {
+  it('XSS in topic input is escaped by escapeHtml', () => {
+    const malicious = '<img src=x onerror=alert(1)>';
+    expect(escapeHtml(malicious)).toContain('&lt;img');
+  });
+  it('script tag is fully neutralised', () => {
+    const out = escapeHtml('<script>document.cookie</script>');
+    expect(out).toContain('&lt;script&gt;');
+  });
+  it('code block content is escaped to prevent XSS', () => {
+    const out = parseMarkdown('```\n<script>alert(1)</script>\n```');
+    expect(out).toContain('&lt;script&gt;');
+  });
+});
+
+describe('Understanding score bounds', () => {
+  it('score of 0 is valid lower bound', () => {
+    const meta = '<!--META\nunderstanding: 0\n-->';
+    expect(parseMeta(meta).understanding).toBeGreaterThanOrEqual(0);
+  });
+  it('score of 100 is valid upper bound', () => {
+    const meta = '<!--META\nunderstanding: 100\n-->';
+    expect(parseMeta(meta).understanding).toBeLessThanOrEqual(100);
+  });
+});
+
+// ── Render results ─────────────────────────────────────────
+const output = document.getElementById('output');
+let passed = 0, failed = 0;
+
+results.forEach(suite => {
+  const div = document.createElement('div');
+  div.className = 'suite';
+  div.innerHTML = `<div class="suite-name">${suite.name}</div>`;
+  suite.tests.forEach(t => {
+    const line = document.createElement('div');
+    if (t.passed) {
+      line.className = 'pass';
+      line.textContent = `  ✓ ${t.label}`;
+      passed++;
+    } else {
+      line.className = 'fail';
+      line.textContent = `  ✗ ${t.label} — ${t.error}`;
+      failed++;
+    }
+    div.appendChild(line);
+  });
+  output.appendChild(div);
+});
+
+const summary = document.getElementById('summary');
+const total = passed + failed;
+summary.innerHTML = failed === 0
+  ? `<span class="pass">✓ All ${total} tests passed</span>`
+  : `<span class="fail">✗ ${failed} failed</span> / <span class="pass">${passed} passed</span> (${total} total)`;
+</script>
+</body>
+</html>

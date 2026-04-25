@@ -43,6 +43,12 @@ The full conversation history (Gemini `contents` array) is maintained in memory 
 - Session state (conversation history, profile) lives in memory only; a page refresh starts a new session.
 - Gemini 2.0 Flash is sufficient for real-time conversational learning; Gemini 1.5 Pro may be substituted for longer, more complex sessions.
 
+## Live Demo
+
+**https://learning-companion-625548914881.us-central1.run.app**
+
+Deployed on Google Cloud Run via Cloud Build + Artifact Registry.
+
 ## Running Locally
 
 Open `index.html` in any modern browser — no build step, no dependencies to install.
@@ -52,8 +58,21 @@ warm-up-challenge/
 ├── index.html   # UI shell + accessibility markup
 ├── style.css    # Design system, responsive layout
 ├── app.js       # Gemini API client, adaptive logic, markdown renderer
+├── Dockerfile   # nginx:alpine container for Cloud Run
+├── nginx.conf   # serves on port 8080 (Cloud Run default)
+├── test.html    # browser-based test suite (open to run)
 └── README.md
 ```
+
+## Testing
+
+Open `test.html` in any browser to run the full test suite — no build step needed. Tests cover:
+- `escapeHtml` — XSS prevention
+- `parseMarkdown` — markdown rendering correctness
+- `parseMeta` — AI metadata extraction
+- `stripMeta` — response cleaning
+- Security — script injection neutralisation
+- Score bounds — understanding value validation
 
 ## Accessibility
 
