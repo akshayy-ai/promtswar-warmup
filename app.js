@@ -29,7 +29,7 @@ let currentUser = null;
 
 // ── Gemini API ─────────────────────────────────────────────────
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
-let   geminiModel = 'gemini-1.5-flash';
+let   geminiModel = 'gemini-2.5-flash';
 function geminiUrl() { return `${GEMINI_BASE}/${geminiModel}:streamGenerateContent?alt=sse`; }
 
 // ── Google Cloud Translation API ───────────────────────────────
@@ -166,7 +166,7 @@ function initFirebase() {
         // First call is null — could be redirect in progress; wait briefly then show login
         setTimeout(() => {
           if (!currentUser) updateAuthUI(null);
-        }, 2000);
+        }, 400);
       }
       firstCall = false;
     });
@@ -604,7 +604,17 @@ function appendMessage(role, rawText, withActions = true) {
   const avatar = document.createElement('div');
   avatar.className = 'message-avatar';
   avatar.setAttribute('aria-hidden', 'true');
-  avatar.textContent = role === 'assistant' ? '🎓' : 'U';
+  if (role === 'assistant') {
+    avatar.textContent = '🎓';
+  } else if (currentUser?.photoURL) {
+    avatar.classList.add('has-photo');
+    const img = document.createElement('img');
+    img.src = currentUser.photoURL;
+    img.alt = '';
+    avatar.appendChild(img);
+  } else {
+    avatar.textContent = 'U';
+  }
 
   const content = document.createElement('div');
   content.className = 'message-content';
@@ -623,7 +633,19 @@ function appendMessage(role, rawText, withActions = true) {
   return bubble;
 }
 
+function showChatWelcome(topic) {
+  const el = document.createElement('div');
+  el.id = 'chat-welcome';
+  el.className = 'chat-welcome';
+  el.innerHTML = `
+    <div class="chat-welcome-icon">🎓</div>
+    <p>Starting your session on <strong>${escapeHtml(topic)}</strong></p>
+    <div class="pulse-dots"><span></span><span></span><span></span></div>`;
+  chatMessages.appendChild(el);
+}
+
 function showTyping() {
+  document.getElementById('chat-welcome')?.remove();
   const div = document.createElement('div');
   div.className = 'message assistant';
   div.id = 'typing-msg';
@@ -735,6 +757,7 @@ async function sendMessage(text, { silent = false } = {}) {
 function setInputState(enabled) {
   userInput.disabled = !enabled;
   sendBtn.disabled   = !enabled || !userInput.value.trim();
+  document.querySelectorAll('.action-btn').forEach(btn => { btn.disabled = !enabled; });
 }
 
 // ── HTML → Markdown normaliser ─────────────────────────────────
@@ -890,10 +913,12 @@ function showCountdown(prefix, seconds, onDone) {
 }
 
 // ── Screen transition ──────────────────────────────────────────
-function startLearningScreen() {
+function startLearningScreen(showWelcome = false) {
   showScreen('learning');
   sidebarTopic.textContent = profile.topic;
   sidebarLevel.textContent = profile.level === 'unknown' ? 'Assessing…' : capitalize(profile.level);
+  if (showWelcome) showChatWelcome(profile.topic);
+  setTimeout(() => userInput.focus(), 50);
 }
 
 // ── Setup form ─────────────────────────────────────────────────
@@ -920,11 +945,15 @@ setupForm.addEventListener('submit', (e) => {
     has_translate:  !!translateKey,
   });
 
+  const startBtn = document.getElementById('start-btn');
+  startBtn.disabled = true;
+  startBtn.innerHTML = '<div class="btn-spinner"></div> Starting…';
+
   clearSession();
   chatMessages.innerHTML = '';
   history = [];
 
-  startLearningScreen();
+  startLearningScreen(true);
   sendMessage('__init__');
 });
 
@@ -1015,6 +1044,10 @@ document.getElementById('btn-new-session').addEventListener('click', () => {
   sidebarLevel.textContent = 'Assessing…';
   userInput.value = '';
   autoResize();
+
+  const startBtn = document.getElementById('start-btn');
+  startBtn.disabled = false;
+  startBtn.innerHTML = 'Start Learning <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8H13M13 8L9 4M13 8L9 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
   showScreen('setup');
 });
