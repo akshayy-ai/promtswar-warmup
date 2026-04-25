@@ -344,7 +344,7 @@ async function callGeminiStream(userMessage, onChunk) {
   const body = {
     system_instruction: { parts: [{ text: buildSystemPrompt() }] },
     contents: history,
-    generationConfig: { temperature: 0.7, maxOutputTokens: 1024, topP: 0.95 },
+    generationConfig: { temperature: 0.7, maxOutputTokens: 2048, topP: 0.95 },
     safetySettings: [
       { category: 'HARM_CATEGORY_HARASSMENT',        threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
       { category: 'HARM_CATEGORY_HATE_SPEECH',       threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
@@ -601,7 +601,7 @@ function appendMessage(role, rawText, withActions = true) {
 
   const bubble = document.createElement('div');
   bubble.className = 'message-bubble';
-  bubble.innerHTML = parseMarkdown(clean);
+  bubble.innerHTML = parseMarkdown(normaliseHtml(clean));
 
   content.appendChild(bubble);
   if (role === 'assistant' && withActions) content.appendChild(createMessageActions(clean));
@@ -671,13 +671,13 @@ async function sendMessage(text, { silent = false } = {}) {
 
     const fullText = await callGeminiStream(prompt, (chunk) => {
       accumulated += chunk;
-      bubble.innerHTML = parseMarkdown(stripMeta(accumulated));
+      bubble.innerHTML = parseMarkdown(normaliseHtml(stripMeta(accumulated)));
       scrollToBottom();
     });
 
     bubble.classList.remove('streaming-cursor');
     bubble.id = '';
-    const cleanResponse = stripMeta(fullText);
+    const cleanResponse = normaliseHtml(stripMeta(fullText));
 
     // Mark last MCQ answer correct/wrong based on AI response keywords
     if (lastMCQSelected) {
@@ -725,6 +725,24 @@ async function sendMessage(text, { silent = false } = {}) {
 function setInputState(enabled) {
   userInput.disabled = !enabled;
   sendBtn.disabled   = !enabled || !userInput.value.trim();
+}
+
+// ── HTML → Markdown normaliser ─────────────────────────────────
+/** Converts common HTML tags the AI sometimes emits into markdown equivalents
+ *  so parseMarkdown can render them correctly without escaping the tags. */
+function normaliseHtml(text) {
+  return text
+    .replace(/<strong>([\s\S]*?)<\/strong>/gi, '**$1**')
+    .replace(/<em>([\s\S]*?)<\/em>/gi,         '*$1*')
+    .replace(/<code>([\s\S]*?)<\/code>/gi,     '`$1`')
+    .replace(/<br\s*\/?>/gi,                   '\n')
+    .replace(/<\/?(?:p|div|span|ul|ol|li|h[1-6])[^>]*>/gi, '\n')
+    .replace(/&amp;/g,  '&')
+    .replace(/&lt;/g,   '<')
+    .replace(/&gt;/g,   '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g,  "'")
+    .replace(/\n{3,}/g, '\n\n');
 }
 
 // ── Markdown renderer ──────────────────────────────────────────
