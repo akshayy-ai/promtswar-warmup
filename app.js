@@ -170,7 +170,7 @@ function updateAuthUI(user) {
     btnIn.hidden = true;
     info.hidden  = false;
     if (user.photoURL) { avatar.src = user.photoURL; avatar.hidden = false; }
-    nameEl.textContent = user.displayName || user.email;
+    nameEl.textContent = user.displayName || user.email || 'Signed in';
     const local = loadSession();
     if (local) sessionBanner.hidden = false;
   } else {
