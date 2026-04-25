@@ -121,6 +121,18 @@ function initFirebase() {
     auth = firebase.auth();
     db   = firebase.firestore();
     document.getElementById('auth-section').hidden = false;
+
+    // Pick up the result after Google redirect sign-in
+    auth.getRedirectResult().then(result => {
+      if (result && result.user) {
+        trackEvent('sign_in', { method: 'google' });
+      }
+    }).catch(e => {
+      if (e.code !== 'auth/no-auth-event') {
+        showToast('Sign-in failed: ' + e.message);
+      }
+    });
+
     auth.onAuthStateChanged(user => {
       currentUser = user;
       updateAuthUI(user);
@@ -134,8 +146,7 @@ async function signInWithGoogle() {
   if (!auth) return;
   try {
     const provider = new firebase.auth.GoogleAuthProvider();
-    await auth.signInWithPopup(provider);
-    trackEvent('sign_in', { method: 'google' });
+    await auth.signInWithRedirect(provider);
   } catch (e) {
     showToast('Sign-in failed. Please try again.');
   }
